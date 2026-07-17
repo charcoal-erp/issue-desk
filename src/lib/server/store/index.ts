@@ -127,8 +127,6 @@ export function list(filter: IssueFilter): { rows: Issue[]; total: number } {
 
 	// 2. Residual predicates.
 	if (filter.type) rows = rows.filter((i) => i.type === filter.type);
-	if (filter.pageId) rows = rows.filter((i) => i.pageId === filter.pageId);
-	if (filter.formId) rows = rows.filter((i) => i.formId === filter.formId);
 	if (filter.q) {
 		const q = filter.q.toLowerCase();
 		rows = rows.filter((i) =>
@@ -189,30 +187,30 @@ async function persistModule(appId: string, moduleId: string): Promise<void> {
 	await writeJsonAtomic(moduleFile(appId, moduleId), group);
 }
 
-function denormalise(input: {
-	appId: string;
-	moduleId: string;
-	pageId?: string;
-	formId?: string;
-}) {
+/** Resolve the app + module labels (the only seeded taxonomy). */
+function denormalise(input: { appId: string; moduleId: string }) {
 	const app = appsList.find((a) => a.id === input.appId);
 	if (!app) throw new Error(`Unknown application "${input.appId}"`);
 	const mod = app.modules.find((m) => m.id === input.moduleId);
 	if (!mod) throw new Error(`Unknown module "${input.moduleId}" in ${app.name}`);
-	const page = input.pageId ? mod.pages.find((p) => p.id === input.pageId) : undefined;
-	const form = input.formId && page ? page.forms.find((f) => f.id === input.formId) : undefined;
 	return {
 		appId: app.id,
 		appCode: app.code,
 		appName: app.name,
 		moduleId: mod.id,
 		moduleCode: mod.code,
-		moduleName: mod.name,
-		pageId: page?.id,
-		pageName: page?.name,
-		pagePath: page?.path,
-		formId: form?.id,
-		formName: form?.name
+		moduleName: mod.name
+	};
+}
+
+/** Page/form are free text; a leading-slash value is treated as a route path. */
+function pageFields(page?: string, form?: string) {
+	const p = page?.trim();
+	const f = form?.trim();
+	return {
+		pagePath: p || undefined,
+		pageName: p || undefined,
+		formName: f || undefined
 	};
 }
 
@@ -243,6 +241,7 @@ export async function create(
 			title: input.title,
 			description: input.description,
 			...loc,
+			...pageFields(input.page, input.form),
 			priority: input.priority,
 			status: input.status,
 			reporterId: actor,
@@ -269,13 +268,14 @@ export async function update(id: string, patch: UpdateIssueInput, actor: string)
 		const now = new Date().toISOString();
 		const loc = denormalise({
 			appId: before.appId, // app never changes — the ID is per-app
-			moduleId: patch.moduleId ?? before.moduleId,
-			pageId: patch.pageId !== undefined ? patch.pageId || undefined : before.pageId,
-			formId: patch.formId !== undefined ? patch.formId || undefined : before.formId
+			moduleId: patch.moduleId ?? before.moduleId
 		});
+		const page = patch.page !== undefined ? patch.page : before.pagePath;
+		const form = patch.form !== undefined ? patch.form : before.formName;
 		const after: Issue = {
 			...before,
 			...loc,
+			...pageFields(page, form),
 			type: patch.type ?? before.type,
 			title: patch.title ?? before.title,
 			description: patch.description ?? before.description,

@@ -17,8 +17,17 @@ npm install
 npm run dev        # dev server on http://localhost:5173
 ```
 
-On first run, an empty `DATA_DIR` is seeded with a demo dataset (8 applications, 5 users,
-15 issues) matching the reference mockups.
+On first run, an empty `DATA_DIR` is seeded with **reference data only** — five
+applications (Charcoal, Chattr, Coffee-ops, Relay, Drishti), their modules, and four users
+(Kiran Kharade, Anant Kharade, Aadinath Kharade, Tushar Kulange). Any user can be a reporter;
+only users marked **assignable** (Kiran, Tushar) appear in the assignee dropdown. **No issues
+are seeded** — populate test issues on demand with the Python simulators in
+[`simulators/`](simulators/):
+
+```bash
+python simulators/charcoal_simulator.py
+python simulators/drishti_simulator.py
+```
 
 Production:
 
@@ -31,8 +40,9 @@ node build         # adapter-node server on PORT (default 3000)
 
 - **Issues** — filter rail (app / status / priority / type), free-text search, sortable table,
   filter chips. Filters live in the URL, so any view is shareable.
-- **New / Edit issue** — dependent App → Module → Page → Form dropdowns, priority pip picker,
-  status picker, drag-and-drop attachments (PNG/JPG/WEBP/GIF/PDF, validated server-side).
+- **New / Edit issue** — dependent App → Module dropdowns; Page and Form are free-text
+  inputs (not seeded taxonomy); priority pip picker, status picker, drag-and-drop attachments
+  (PNG/JPG/WEBP/GIF/PDF, validated server-side).
 - **Detail drawer** — rendered Markdown, attachment gallery with public URLs, activity
   timeline, quick status advance, per-issue *Copy for Claude Code*.
 - **Board** — Open / Implemented / Complete columns; drag a card to change status.

@@ -31,7 +31,8 @@ export const actions: Actions = {
 			id: String(form.get('id') || '').trim(),
 			name: String(form.get('name') || '').trim(),
 			role: String(form.get('role') || '').trim() || undefined,
-			avatarColor: String(form.get('avatarColor') || '').trim() || undefined
+			avatarColor: String(form.get('avatarColor') || '').trim() || undefined,
+			assignable: form.get('assignable') === 'on'
 		});
 		if (!parsed.success) {
 			return fail(400, { message: parsed.error.issues[0]?.message ?? 'Invalid user' });

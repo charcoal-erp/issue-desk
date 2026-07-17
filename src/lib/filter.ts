@@ -9,7 +9,7 @@ export function parseFilter(params: URLSearchParams): IssueFilter {
 	const filter: IssueFilter = {};
 	const q = params.get('q')?.trim();
 	if (q) filter.q = q;
-	for (const key of ['appId', 'moduleId', 'pageId', 'formId', 'reporterId', 'assigneeId', 'tag'] as const) {
+	for (const key of ['appId', 'moduleId', 'reporterId', 'assigneeId', 'tag'] as const) {
 		const v = params.get(key);
 		if (v) filter[key] = v;
 	}
@@ -38,7 +38,7 @@ export function parseFilter(params: URLSearchParams): IssueFilter {
 export function filterToParams(filter: IssueFilter): URLSearchParams {
 	const params = new URLSearchParams();
 	if (filter.q) params.set('q', filter.q);
-	for (const key of ['appId', 'moduleId', 'pageId', 'formId', 'reporterId', 'assigneeId', 'tag'] as const) {
+	for (const key of ['appId', 'moduleId', 'reporterId', 'assigneeId', 'tag'] as const) {
 		const v = filter[key];
 		if (v) params.set(key, v);
 	}

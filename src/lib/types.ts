@@ -15,6 +15,7 @@ export interface User {
 	role?: string; // "Architect", "QA", "Stakeholder"
 	avatarColor?: string; // hex, for the avatar chip
 	active?: boolean;
+	assignable?: boolean; // eligible to be an assignee; reporters can be anyone
 }
 
 export interface FormRef {
@@ -31,7 +32,7 @@ export interface ModuleRef {
 	id: string;
 	code: string;
 	name: string;
-	pages: PageRef[];
+	pages?: PageRef[]; // pages/forms are now free-text on the issue, not seeded taxonomy
 }
 
 export interface Application {
@@ -88,10 +89,9 @@ export interface Issue {
 	moduleId: string;
 	moduleCode: string;
 	moduleName: string;
-	pageId?: string;
+	// Page and form are free text captured on the issue (not seeded taxonomy).
 	pageName?: string;
 	pagePath?: string;
-	formId?: string;
 	formName?: string;
 
 	priority: Priority;
@@ -113,8 +113,6 @@ export interface IssueFilter {
 	q?: string; // free text over title + description + id
 	appId?: string;
 	moduleId?: string;
-	pageId?: string;
-	formId?: string;
 	type?: IssueType;
 	status?: Status[]; // multi-select
 	priority?: Priority[]; // multi-select
@@ -135,8 +133,8 @@ export interface CreateIssueInput {
 	description: string;
 	appId: string;
 	moduleId: string;
-	pageId?: string;
-	formId?: string;
+	page?: string; // free text — route or page name, e.g. "/login" or "Login screen"
+	form?: string; // free text — form/treatment name, e.g. "OTP Verification"
 	priority: Priority;
 	status: Status;
 	assigneeId?: string;

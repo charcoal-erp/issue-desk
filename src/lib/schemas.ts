@@ -15,7 +15,8 @@ export const userSchema = z.object({
 		.string()
 		.regex(/^#[0-9a-fA-F]{6}$/)
 		.optional(),
-	active: z.boolean().optional()
+	active: z.boolean().optional(),
+	assignable: z.boolean().optional()
 });
 
 export const formRefSchema = z.object({ id: slug, name: z.string().min(1) });
@@ -31,7 +32,7 @@ export const moduleRefSchema = z.object({
 	id: slug,
 	code: z.string().min(1),
 	name: z.string().min(1),
-	pages: z.array(pageRefSchema).default([])
+	pages: z.array(pageRefSchema).optional().default([])
 });
 
 export const applicationSchema = z.object({
@@ -88,10 +89,8 @@ export const issueSchema = z.object({
 	moduleId: slug,
 	moduleCode: z.string().min(1),
 	moduleName: z.string().min(1),
-	pageId: z.string().optional(),
 	pageName: z.string().optional(),
 	pagePath: z.string().optional(),
-	formId: z.string().optional(),
 	formName: z.string().optional(),
 	priority: z.enum(PRIORITIES),
 	status: z.enum(STATUSES),
@@ -116,8 +115,8 @@ export const createIssueSchema = z.object({
 	description: z.string().default(''),
 	appId: z.string().min(1, 'Application is required'),
 	moduleId: z.string().min(1, 'Module is required'),
-	pageId: z.string().optional(),
-	formId: z.string().optional(),
+	page: z.string().trim().max(200).optional(),
+	form: z.string().trim().max(200).optional(),
 	priority: z.enum(PRIORITIES),
 	status: z.enum(STATUSES),
 	assigneeId: z.string().optional(),

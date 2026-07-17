@@ -79,7 +79,7 @@
 				<div class="data-card">
 					<table>
 						<thead>
-							<tr><th>Name</th><th>ID</th><th>Role</th><th>Reported</th><th>Assigned</th></tr>
+							<tr><th>Name</th><th>ID</th><th>Role</th><th>Assignable</th><th>Reported</th><th>Assigned</th></tr>
 						</thead>
 						<tbody>
 							{#each data.users as user (user.id)}
@@ -87,6 +87,10 @@
 									<td><div class="assignee-cell"><Avatar {user} /><b>{user.name}</b></div></td>
 									<td style="font-family:var(--font-mono);font-size:12px;color:var(--muted)">{user.id}</td>
 									<td><span class="role-tag">{user.role}</span></td>
+									<td>
+										{#if user.assignable}<span class="role-tag" style="color:var(--accent-ink)">Yes</span
+											>{:else}<span style="color:var(--faint)">—</span>{/if}
+									</td>
 									<td>{data.perUser[user.id]?.reported ?? 0}</td>
 									<td>{data.perUser[user.id]?.assigned ?? 0}</td>
 								</tr>
@@ -157,6 +161,12 @@
 								<label for="a-color">Avatar colour <span class="hint">· hex</span></label>
 								<input class="inp" id="a-color" name="avatarColor" value={editingUser?.avatarColor ?? '#5B4BFF'} placeholder="#5B4BFF" />
 							</div>
+							<div class="field full">
+								<label class="chkline">
+									<input type="checkbox" name="assignable" checked={editingUser?.assignable ?? false} />
+									Assignable <span class="hint">· appears in the assignee dropdown</span>
+								</label>
+							</div>
 						{:else}
 							<div class="field">
 								<label for="a-id">ID <span class="hint">· slug, permanent</span></label>
@@ -199,5 +209,16 @@
 	}
 	.rowbtn:hover {
 		background: var(--accent-soft-2);
+	}
+	.chkline {
+		flex-direction: row !important;
+		align-items: center;
+		gap: 8px;
+		cursor: pointer;
+	}
+	.chkline input {
+		width: 16px;
+		height: 16px;
+		accent-color: var(--accent);
 	}
 </style>

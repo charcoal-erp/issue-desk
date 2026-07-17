@@ -31,8 +31,8 @@
 	let type = $state<IssueType>('bug');
 	let appId = $state('');
 	let moduleId = $state('');
-	let pageId = $state('');
-	let formId = $state('');
+	let pageText = $state('');
+	let formText = $state('');
 	let title = $state('');
 	let description = $state('');
 	let priority = $state<Priority>('high');
@@ -45,13 +45,16 @@
 
 	const draftId = crypto.randomUUID();
 
+	// Only assignable users appear in the assignee list; reporters can be anyone.
+	const assignees = $derived(users.filter((u) => u.assignable));
+
 	$effect.pre(() => {
 		if (editing) {
 			type = editing.type;
 			appId = editing.appId;
 			moduleId = editing.moduleId;
-			pageId = editing.pageId ?? '';
-			formId = editing.formId ?? '';
+			pageText = editing.pagePath ?? editing.pageName ?? '';
+			formText = editing.formName ?? '';
 			title = editing.title;
 			description = editing.description;
 			priority = editing.priority;
@@ -63,8 +66,6 @@
 	});
 
 	const app = $derived(applications.find((a) => a.id === appId));
-	const module_ = $derived(app?.modules.find((m) => m.id === moduleId));
-	const pageRef = $derived(module_?.pages.find((p) => p.id === pageId));
 
 	const nextIdPreview = $derived(
 		editing ? editing.id : appId ? ((page.data.nextIds as Record<string, string>)?.[appId] ?? '—') : '—'
@@ -72,15 +73,6 @@
 
 	function onAppChange() {
 		moduleId = '';
-		pageId = '';
-		formId = '';
-	}
-	function onModuleChange() {
-		pageId = '';
-		formId = '';
-	}
-	function onPageChange() {
-		formId = '';
 	}
 </script>
 
@@ -166,15 +158,8 @@
 					</div>
 					<div class="field">
 						<label for="f-module">Module <span class="req">*</span></label>
-						<select
-							class="sel"
-							id="f-module"
-							name="moduleId"
-							bind:value={moduleId}
-							onchange={onModuleChange}
-							disabled={!app}
-						>
-							<option value="">{app ? 'Select module…' : 'Select module…'}</option>
+						<select class="sel" id="f-module" name="moduleId" bind:value={moduleId} disabled={!app}>
+							<option value="">Select module…</option>
 							{#each app?.modules ?? [] as m (m.id)}
 								<option value={m.id}>{m.name}</option>
 							{/each}
@@ -182,35 +167,24 @@
 						{#if fieldErrors.moduleId}<span class="err">{fieldErrors.moduleId}</span>{/if}
 					</div>
 					<div class="field">
-						<label for="f-page">Page</label>
-						<select
-							class="sel"
+						<label for="f-page">Page <span class="hint">· free text</span></label>
+						<input
+							class="inp"
 							id="f-page"
-							name="pageId"
-							bind:value={pageId}
-							onchange={onPageChange}
-							disabled={!module_}
-						>
-							<option value="">{module_ ? 'Select page…' : '—'}</option>
-							{#each module_?.pages ?? [] as p (p.id)}
-								<option value={p.id}>{p.name}</option>
-							{/each}
-						</select>
+							name="page"
+							bind:value={pageText}
+							placeholder="e.g. /login or Login screen"
+						/>
 					</div>
 					<div class="field">
-						<label for="f-form">Form</label>
-						<select
-							class="sel"
+						<label for="f-form">Form <span class="hint">· free text</span></label>
+						<input
+							class="inp"
 							id="f-form"
-							name="formId"
-							bind:value={formId}
-							disabled={!pageRef || !pageRef.forms.length}
-						>
-							<option value="">{pageRef?.forms.length ? 'Select form…' : '—'}</option>
-							{#each pageRef?.forms ?? [] as f (f.id)}
-								<option value={f.id}>{f.name}</option>
-							{/each}
-						</select>
+							name="form"
+							bind:value={formText}
+							placeholder="e.g. OTP Verification"
+						/>
 					</div>
 
 					<div class="field full">
@@ -268,7 +242,7 @@
 						<label for="f-assignee">Assignee</label>
 						<select class="sel" id="f-assignee" name="assigneeId" bind:value={assigneeId}>
 							<option value="">Unassigned</option>
-							{#each users as u (u.id)}
+							{#each assignees as u (u.id)}
 								<option value={u.id}>{u.name}</option>
 							{/each}
 						</select>
