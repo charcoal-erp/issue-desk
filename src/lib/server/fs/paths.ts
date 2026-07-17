@@ -1,5 +1,10 @@
 import path from 'node:path';
-import { env } from '$env/dynamic/private';
+import { env as kitEnv } from '$env/dynamic/private';
+
+// $env/dynamic/private is empty under vitest, so fall back to process.env.
+const env = new Proxy({} as Record<string, string | undefined>, {
+	get: (_, key: string) => kitEnv[key] ?? process.env[key]
+});
 
 /** Root of all config / issues / uploads. Overridable via DATA_DIR. */
 export function dataDir(): string {

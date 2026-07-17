@@ -148,8 +148,9 @@ export function list(filter: IssueFilter): { rows: Issue[]; total: number } {
 		let av: string | number, bv: string | number;
 		switch (key) {
 			case 'priority':
-				av = priorityRank(a.priority);
-				bv = priorityRank(b.priority);
+				// Rank inverted so "desc" surfaces Critical first (§13).
+				av = -priorityRank(a.priority);
+				bv = -priorityRank(b.priority);
 				break;
 			case 'status':
 				av = statusRank(a.status);
