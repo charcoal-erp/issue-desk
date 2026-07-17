@@ -96,6 +96,13 @@ export function settings(): Settings {
 	return settingsObj;
 }
 
+/** "CHR-15" per app — the modal's next-ID preview. */
+export function nextIds(): Record<string, string> {
+	const out: Record<string, string> = {};
+	for (const [appId, seq] of sequences) out[appId] = `${seq.code}-${seq.next}`;
+	return out;
+}
+
 // ---------- reads ----------
 export function get(id: string): Issue | undefined {
 	return byId.get(id);
