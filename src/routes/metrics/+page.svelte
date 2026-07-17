@@ -11,6 +11,7 @@
 	const issues = $derived(data.issues);
 	const open = $derived(issues.filter((i) => i.status === 'open').length);
 	const impl = $derived(issues.filter((i) => i.status === 'implemented').length);
+	const rejected = $derived(issues.filter((i) => i.status === 'rejected').length);
 	const crit = $derived(issues.filter((i) => i.priority === 'critical' && i.status === 'open').length);
 	const bugs = $derived(issues.filter((i) => i.type === 'bug').length);
 	const features = $derived(issues.filter((i) => i.type === 'feature').length);
@@ -38,6 +39,7 @@
 		{ k: 'Total issues', v: issues.length, c: 'var(--accent)', d: `${bugs} bugs · ${features} features` },
 		{ k: 'Open', v: open, c: 'var(--open)', d: 'awaiting work' },
 		{ k: 'Implemented', v: impl, c: 'var(--impl)', d: 'in verification' },
+		{ k: 'Rejected', v: rejected, c: 'var(--rejected)', d: 'won’t implement' },
 		{ k: 'Critical & open', v: crit, c: '#B0343A', d: 'need attention now' }
 	]);
 </script>
