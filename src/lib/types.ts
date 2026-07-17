@@ -2,8 +2,9 @@
 export const PRIORITIES = ['critical', 'very_high', 'high', 'medium', 'low'] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
-export const STATUSES = ['open', 'implemented', 'complete'] as const;
-export type Status = (typeof STATUSES)[number]; // open→Red, implemented→Yellow, complete→Green
+export const STATUSES = ['open', 'implemented', 'complete', 'rejected'] as const;
+// open→Red, implemented→Yellow, complete→Green, rejected→Slate (won't implement)
+export type Status = (typeof STATUSES)[number];
 
 export const ISSUE_TYPES = ['bug', 'feature'] as const;
 export type IssueType = (typeof ISSUE_TYPES)[number];

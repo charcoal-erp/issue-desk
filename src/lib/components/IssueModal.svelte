@@ -224,15 +224,15 @@
 					<div class="field">
 						<label for="f-status">Status</label>
 						<div class="status-picker" id="f-status">
-							{#each STATUSES as s, i (s)}
+							{#each STATUSES as s (s)}
 								<button
 									type="button"
-									class="status-opt {['s-open', 's-impl', 's-done'][i]}"
+									class="status-opt {STATUS_META[s].pickerClass}"
 									class:on={status === s}
 									onclick={() => (status = s)}
 								>
 									<span class="dot" style="background:{STATUS_META[s].color}"></span>
-									{s === 'open' ? 'Open' : s === 'implemented' ? 'Impl.' : 'Done'}
+									{STATUS_META[s].shortLabel}
 								</button>
 							{/each}
 						</div>

@@ -24,7 +24,8 @@ REPORTERS = ["kiran", "anant", "aadinath", "tushar"]
 ASSIGNEES = ["kiran", "tushar"]
 
 PRIORITIES = ["critical", "very_high", "high", "medium", "low"]
-STATUSES = ["open", "implemented", "complete"]
+STATUSES = ["open", "implemented", "complete", "rejected"]
+STATUS_WEIGHTS = [5, 2, 3, 1]  # mostly open; a few rejected (won't implement)
 
 # A 1x1 transparent PNG — a valid image the upload endpoint accepts.
 _TINY_PNG = base64.b64decode(
@@ -161,7 +162,7 @@ def run(
             "page": tpl.page,
             "form": tpl.form,
             "priority": rng.choice(PRIORITIES),
-            "status": rng.choices(STATUSES, weights=[5, 2, 3])[0],
+            "status": rng.choices(STATUSES, weights=STATUS_WEIGHTS)[0],
             "reporterId": reporter,
             "assigneeId": assignee or "",
             "tags": tpl.tags,

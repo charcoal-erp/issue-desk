@@ -21,6 +21,8 @@
 	--open-soft: #fdecec;
 	--impl-soft: #fef4e1;
 	--done-soft: #e7f5ee;
+	--rejected: #64748b; /* Rejected (Slate) */
+	--rejected-soft: #eef1f5;
 
 	--p-critical: #e5484d;
 	--p-veryhigh: #f76808;
@@ -851,6 +853,10 @@ textarea {
 	background: var(--done-soft);
 	color: #1e7a4c;
 }
+.st-rejected {
+	background: var(--rejected-soft);
+	color: #475569;
+}
 
 .prio {
 	display: inline-flex;
@@ -1623,6 +1629,10 @@ textarea {
 .status-opt.on.s-done {
 	background: var(--done-soft);
 	border-color: #aedcc4;
+}
+.status-opt.on.s-rejected {
+	background: var(--rejected-soft);
+	border-color: #cbd3de;
 }
 
 .type-picker {
