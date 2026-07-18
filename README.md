@@ -8,7 +8,8 @@ Built with **TypeScript · Svelte 5 (runes) · SvelteKit (adapter-node)**. No da
 reference data and issues live in human-readable JSON files under `data/`, uploads live on the
 local filesystem behind stable public URLs, and everything is served from an in-memory
 write-through store. See [docs/IssueDesk-Design-Document.md](docs/IssueDesk-Design-Document.md)
-for the full design.
+for the full design, and [DEPLOYMENT.md](DEPLOYMENT.md) for exposing a custom domain, running in
+production, and starting the app on boot via systemd.
 
 ## Run
 
@@ -35,6 +36,9 @@ Production:
 npm run build
 node build         # adapter-node server on PORT (default 3000)
 ```
+
+For exposing a custom domain, loading `.env` into `node build`, and running IssueDesk as a
+systemd service that starts on boot, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Screens
 

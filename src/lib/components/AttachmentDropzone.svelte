@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Attachment } from '$lib/types';
+	import { pastedImages } from '$lib/clipboard';
 	import { fmtSize } from '$lib/format';
 	import { toast } from '$lib/stores/toasts.svelte';
 	import Icon from './Icon.svelte';
@@ -20,7 +21,10 @@
 	let dragover = $state(false);
 	let uploading = $state(false);
 
-	async function upload(files: FileList | File[]) {
+	// Client-only component, so no hydration mismatch to worry about.
+	const pasteKey = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl';
+
+	async function upload(files: FileList | File[], announce = false) {
 		if (!appId) {
 			toast('Choose an application first', 'Uploads are stored per app and issue');
 			return;
@@ -38,7 +42,16 @@
 				toast('Upload failed', payload.message);
 				return;
 			}
-			attachments = [...attachments, ...payload.attachments];
+			const added = payload.attachments as Attachment[];
+			attachments = [...attachments, ...added];
+			// The dropzone sits at the foot of a long form, so a paste that lands
+			// off-screen needs to say so.
+			if (announce && added.length) {
+				toast(
+					added.length === 1 ? 'Screenshot attached' : `${added.length} screenshots attached`,
+					added.map((a) => a.filename).join(', ')
+				);
+			}
 		} catch {
 			toast('Upload failed', 'Could not reach the server');
 		} finally {
@@ -51,6 +64,18 @@
 		dragover = false;
 		if (e.dataTransfer?.files.length) upload(e.dataTransfer.files);
 	}
+
+	// Paste anywhere in the modal — this component only exists while it's open.
+	$effect(() => {
+		function onPaste(e: ClipboardEvent) {
+			const images = pastedImages(e);
+			if (!images.length) return;
+			e.preventDefault();
+			upload(images, true);
+		}
+		window.addEventListener('paste', onPaste);
+		return () => window.removeEventListener('paste', onPaste);
+	});
 
 	function remove(att: Attachment) {
 		attachments = attachments.filter((a) => a.id !== att.id);
@@ -74,8 +99,8 @@
 		{uploading ? 'Uploading…' : 'Drop screenshots or PDFs here, or click to browse'}
 	</div>
 	<div class="dz-s">
-		Uploaded to <span style="font-family:var(--font-mono)">/uploads/&lt;app&gt;/&lt;id&gt;/</span> with a
-		public URL
+		Paste a screenshot with <kbd>{pasteKey}</kbd><kbd>V</kbd> · files land in
+		<span style="font-family:var(--font-mono)">/uploads/&lt;app&gt;/&lt;id&gt;/</span>
 	</div>
 </button>
 <input

@@ -1,7 +1,10 @@
 import path from 'node:path';
 import { env as kitEnv } from '$env/dynamic/private';
+import { env as kitEnvPublic } from '$env/dynamic/public';
 
-// $env/dynamic/private is empty under vitest, so fall back to process.env.
+// $env/dynamic/private is empty under vitest *unless* an .env file is present,
+// and it outranks process.env here — so test overrides belong in .env.test, not
+// in vitest's test.env.
 const env = new Proxy({} as Record<string, string | undefined>, {
 	get: (_, key: string) => kitEnv[key] ?? process.env[key]
 });
@@ -46,5 +49,8 @@ export function maxAttachments(): number {
 }
 
 export function publicBaseUrl(): string {
-	return (env.PUBLIC_BASE_URL || 'http://localhost:5173').replace(/\/$/, '');
+	// PUBLIC_-prefixed vars are excluded from $env/dynamic/private, so read the
+	// public module (and raw process.env, for values set outside a .env file).
+	const configured = kitEnvPublic.PUBLIC_BASE_URL || env.PUBLIC_BASE_URL;
+	return (configured || 'http://localhost:5173').replace(/\/$/, '');
 }

@@ -1696,6 +1696,16 @@ textarea {
 	font-size: 11.5px;
 	margin-top: 3px;
 }
+.dropzone .dz-s kbd {
+	font-family: var(--font-mono);
+	font-size: 10px;
+	color: var(--muted);
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: 5px;
+	padding: 1px 5px;
+	margin-right: 2px;
+}
 .dz-list {
 	display: flex;
 	flex-direction: column;
