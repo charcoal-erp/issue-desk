@@ -8,7 +8,15 @@
 	import IssueModal from '$lib/components/IssueModal.svelte';
 	import IssueDetailDrawer from '$lib/components/IssueDetailDrawer.svelte';
 	import ExportPanel from '$lib/components/ExportPanel.svelte';
-	import { closeDrawer, closeExport, closeIssueModal, openNewIssue, ui } from '$lib/stores/ui.svelte';
+	import ImageLightbox from '$lib/components/ImageLightbox.svelte';
+	import {
+		closeDrawer,
+		closeExport,
+		closeIssueModal,
+		closeLightbox,
+		openNewIssue,
+		ui
+	} from '$lib/stores/ui.svelte';
 
 	let { data, children } = $props();
 
@@ -32,6 +40,12 @@
 			topbar?.focusSearch();
 		}
 		if (e.key === 'Escape') {
+			// The preview sits on top of the modal — dismiss it alone, or Escape
+			// would discard the half-filled issue form behind it.
+			if (ui.lightbox) {
+				closeLightbox();
+				return;
+			}
 			closeIssueModal();
 			closeDrawer();
 			closeExport();
@@ -86,6 +100,10 @@
 
 {#if ui.exportOpen}
 	<ExportPanel applications={data.applications} />
+{/if}
+
+{#if ui.lightbox}
+	<ImageLightbox />
 {/if}
 
 <ToastHost />

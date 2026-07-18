@@ -3,6 +3,7 @@
 	import { pastedImages } from '$lib/clipboard';
 	import { fmtSize } from '$lib/format';
 	import { toast } from '$lib/stores/toasts.svelte';
+	import { openLightbox } from '$lib/stores/ui.svelte';
 	import Icon from './Icon.svelte';
 
 	let {
@@ -118,9 +119,18 @@
 <div class="dz-list">
 	{#each attachments as att (att.id)}
 		<div class="dz-file">
-			<span class="thumb {att.kind === 'image' ? 'thumb-img' : 'thumb-pdf'}">
-				<Icon name={att.kind === 'image' ? 'image' : 'file'} />
-			</span>
+			{#if att.kind === 'image'}
+				<button
+					type="button"
+					class="thumb thumb-shot"
+					aria-label="Preview {att.filename}"
+					onclick={() => openLightbox(attachments, att)}
+				>
+					<img src={att.url} alt="" loading="lazy" />
+				</button>
+			{:else}
+				<span class="thumb thumb-pdf"><Icon name="file" /></span>
+			{/if}
 			<div class="fmeta">
 				<div class="fn">{att.filename}</div>
 				<div class="fs">{fmtSize(att.size)} · {att.kind === 'image' ? 'Image' : 'PDF'}</div>

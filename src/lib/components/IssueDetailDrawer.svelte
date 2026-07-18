@@ -9,7 +9,7 @@
 	import { postAction } from '$lib/actions';
 	import { singleIssueMarkdown } from '$lib/export/copyIssue';
 	import { toast } from '$lib/stores/toasts.svelte';
-	import { closeDrawer, openEditIssue, ui } from '$lib/stores/ui.svelte';
+	import { closeDrawer, openEditIssue, openLightbox, ui } from '$lib/stores/ui.svelte';
 	import Avatar from './Avatar.svelte';
 	import Icon from './Icon.svelte';
 	import PriorityMeter from './PriorityMeter.svelte';
@@ -158,16 +158,23 @@
 				<div class="dr-sec-t">Attachments · public URLs</div>
 				<div class="gallery">
 					{#each issue.attachments as att (att.id)}
-						<a class="gal-item" href={att.url} target="_blank" rel="noopener">
-							<div class="gal-thumb {att.kind === 'image' ? 'img' : 'pdf'}">
-								{#if att.kind === 'image'}
+						{#if att.kind === 'image'}
+							<button
+								type="button"
+								class="gal-item"
+								onclick={() => openLightbox(issue.attachments, att)}
+							>
+								<div class="gal-thumb img">
 									<img src={att.url} alt={att.filename} loading="lazy" />
-								{:else}
-									<Icon name="file-lt" />
-								{/if}
-							</div>
-							<div class="gal-name">{att.filename}</div>
-						</a>
+								</div>
+								<div class="gal-name">{att.filename}</div>
+							</button>
+						{:else}
+							<a class="gal-item" href={att.url} target="_blank" rel="noopener">
+								<div class="gal-thumb pdf"><Icon name="file-lt" /></div>
+								<div class="gal-name">{att.filename}</div>
+							</a>
+						{/if}
 					{/each}
 				</div>
 			{/if}
