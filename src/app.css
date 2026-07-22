@@ -2352,6 +2352,34 @@ textarea {
 	font-family: var(--font-mono);
 	margin-top: 1px;
 }
+.toast .tbody {
+	flex: 1;
+	min-width: 0;
+}
+.toast .tx {
+	display: grid;
+	place-items: center;
+	width: 22px;
+	height: 22px;
+	flex: 0 0 22px;
+	margin-right: -6px;
+	border: none;
+	border-radius: 6px;
+	background: transparent;
+	color: rgba(255, 255, 255, 0.55);
+	cursor: pointer;
+	transition: 0.14s;
+}
+.toast .tx:hover {
+	background: rgba(255, 255, 255, 0.14);
+	color: #fff;
+}
+/* override the green tick colour inherited from `.toast svg` */
+.toast .tx svg {
+	width: 13px;
+	height: 13px;
+	color: currentColor;
+}
 .toast.out {
 	transition:
 		opacity 0.3s,
