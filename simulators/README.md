@@ -18,8 +18,9 @@ No third-party packages — standard library only (Python 3.9+).
 2. Run a simulator from the repo root:
 
    ```bash
-   python simulators/charcoal_simulator.py
-   python simulators/drishti_simulator.py
+   python simulators/charcoal_simulator.py       # IssueDesk issues
+   python simulators/drishti_simulator.py         # IssueDesk issues
+   python simulators/checkpoint_simulator.py      # Checkpoint: runners, cases, suites, a run
    ```
 
 ### Options
@@ -50,6 +51,9 @@ attachment records to the create call, which moves them into the issue's folder.
 - `common.py` — shared HTTP client, CLI parsing, and the create/upload flow.
 - `charcoal_simulator.py` — Charcoal ERP issues across all 14 modules.
 - `drishti_simulator.py` — Drishti issues across its six portals.
+- `checkpoint_simulator.py` — Checkpoint demo data: the six representative runners, a spread
+  of test cases (api / e2e / unit / visual / shell / manual), two suites, and one launched run
+  with its manual cases marked. Drives the same form actions the UI uses.
 
 To reset, stop the app, delete `data/`, and restart — it reseeds reference data
 (no issues), and you can run the simulators again.

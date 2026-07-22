@@ -40,6 +40,25 @@ node build         # adapter-node server on PORT (default 3000)
 For exposing a custom domain, loading `.env` into `node build`, and running IssueDesk as a
 systemd service that starts on boot, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
+## Two workspaces — IssueDesk + Checkpoint
+
+The app hosts **two separate interfaces from one codebase, one backend and one deployment**:
+
+- **IssueDesk** (`/desk`) — the bug & feature tracker described here (indigo).
+- **Checkpoint** (`/qa`) — a test-management workspace (teal): test cases, suites, runners and
+  runs across mixed frameworks (pytest, Playwright, Vitest, shell, manual), with failures
+  exported as a ready-to-paste Claude Code prompt or filed as an IssueDesk bug next door. See
+  [docs/Checkpoint-Design-Document.md](docs/Checkpoint-Design-Document.md).
+
+A launcher at `/` chooses a workspace; a switcher in the top-left of each moves between them.
+The two never mix content on a screen. Checkpoint seeds nothing (honest empty states) —
+populate a demo dataset (six runners, a spread of cases, two suites and a launched run) on
+demand, with the app running:
+
+```bash
+python simulators/checkpoint_simulator.py
+```
+
 ## Screens
 
 - **Issues** — filter rail (app / status / priority / type), free-text search, sortable table,
@@ -63,7 +82,8 @@ systemd service that starts on boot, see [DEPLOYMENT.md](DEPLOYMENT.md).
 | `PUBLIC_BASE_URL` | `http://localhost:5173` | Host used to absolutise attachment URLs in exports |
 | `MAX_UPLOAD_MB` | `15` | Per-file size cap |
 | `MAX_ATTACHMENTS` | `10` | Per-issue attachment cap |
-| `WATCH_FILES` | `false` | Re-sync the store when data files are edited by hand |
+| `WATCH_FILES` | `false` | Re-sync the store when data files are edited by hand (covers Checkpoint dirs too) |
+| `CHECKPOINT_WORKDIR` | `process.cwd()` | Base directory runner working-dirs resolve from when a Checkpoint run executes |
 | `PORT` | `3000` | adapter-node port |
 
 ## Data layout
@@ -72,11 +92,19 @@ systemd service that starts on boot, see [DEPLOYMENT.md](DEPLOYMENT.md).
 data/
 ├── config/            users.json · applications.json · settings.json
 ├── issues/<app>/      _sequence.json (per-app counter) · <module>.json (Issue[])
-└── uploads/<app>/<issueId>/  attachments, served at /api/files/<app>/<issueId>/<file>
+├── uploads/<app>/<issueId>/  attachments, served at /api/files/<app>/<issueId>/<file>
+│
+│                      # Checkpoint (additive — IssueDesk files untouched)
+├── runners.json       runner definitions (global, RNR-n)
+├── tests/<app>/       _sequence.json (testCase/suite/run counters) · <module>.json (TestCase[])
+├── suites/<app>.json  TestSuite[] per app
+├── runs/<app>/        <runId>.json (one immutable file per run)
+└── reports/<runId>/   captured raw reports & artifacts
 ```
 
-Issue IDs are per-application (`CHR-14`); storage files are per-module. The whole `data/`
-directory is self-contained — zip it, commit it, or rsync it to move the system.
+Issue IDs are per-application (`CHR-14`); Checkpoint mirrors this (`TC-CHR-12`, `SUITE-CHR-4`,
+`RUN-CHR-31`). Storage files are per-module. The whole `data/` directory is self-contained —
+zip it, commit it, or rsync it to move the system.
 
 ## Tests
 

@@ -4,6 +4,10 @@
 second, separate interface, switchable both from a **launcher at `/`** and a **top-left
 workspace switcher** in each workspace's top bar.
 
+**Status: complete.** All 15 tasks below shipped on branch `feat/checkpoint`, each committed
+and pushed with both regression gates green. IssueDesk behaves identically under `/desk`;
+Checkpoint lives under `/qa`; the launcher and top-bar switcher move between them.
+
 **Prime directive:** *no regressions to IssueDesk* other than the switching mechanism. The
 existing issue tracker must behave identically once it lives under `/desk`.
 
