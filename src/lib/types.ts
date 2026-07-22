@@ -315,3 +315,60 @@ export interface TestRun {
 	results: CaseResult[];
 	// derived at read time: counts { pass, fail, blocked, skipped }, passRate
 }
+
+// ---------- Checkpoint form / action inputs ----------
+export interface CreateTestCaseInput {
+	appId: string;
+	moduleId: string;
+	page?: string; // free text
+	form?: string; // free text
+	title: string;
+	preconditions?: string;
+	steps: TestStep[];
+	priority: Priority;
+	status: TestCaseStatus;
+	tags: string[];
+	kind: TestKind;
+	runnerId: string | null;
+	specPath: string | null;
+	externalTestId: string | null;
+	parentIssueId: string | null;
+	suiteIds: string[];
+}
+export type UpdateTestCaseInput = Partial<CreateTestCaseInput>;
+
+export interface CreateSuiteInput {
+	appId: string;
+	name: string;
+	description?: string;
+	caseIds: string[];
+	defaultEnv: SuiteEnvironment;
+	tags: string[];
+}
+export type UpdateSuiteInput = Partial<Omit<CreateSuiteInput, 'appId'>>;
+
+export interface CreateRunnerInput {
+	name: string;
+	kind: TestKind;
+	language: RunnerLanguage;
+	command: string;
+	workingDir: string;
+	env?: Record<string, string>;
+	reportFormat: ReportFormat;
+	reportPath: string;
+	matchStrategy: MatchStrategy;
+	timeoutSec?: number;
+	enabled: boolean;
+}
+export type UpdateRunnerInput = Partial<CreateRunnerInput>;
+
+/** Case filter for the Cases table (design §10.2). */
+export interface TestCaseFilter {
+	q?: string;
+	appId?: string;
+	moduleId?: string;
+	kind?: TestKind[];
+	status?: TestCaseStatus[];
+	lastResult?: (ResultStatus | 'none')[];
+	tag?: string;
+}

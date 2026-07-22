@@ -20,6 +20,9 @@ export default defineConfig({
 	},
 	test: {
 		include: ['tests/**/*.test.ts'],
+		// Every store/uploads test file wipes and reseeds the one shared DATA_DIR
+		// ($env snapshots it once), so files must not run concurrently.
+		fileParallelism: false,
 		// Aborts the run if DATA_DIR still points inside the repo (see .env.test).
 		setupFiles: ['tests/setup.ts'],
 		env: {
