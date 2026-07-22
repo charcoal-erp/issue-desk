@@ -22,13 +22,9 @@ On first run, an empty `DATA_DIR` is seeded with **reference data only** — fiv
 applications (Charcoal, Chattr, Coffee-ops, Relay, Drishti), their modules, and four users
 (Kiran Kharade, Anant Kharade, Aadinath Kharade, Tushar Kulange). Any user can be a reporter;
 only users marked **assignable** (Kiran, Tushar) appear in the assignee dropdown. **No issues
-are seeded** — populate test issues on demand with the Python simulators in
-[`simulators/`](simulators/):
-
-```bash
-python simulators/charcoal_simulator.py
-python simulators/drishti_simulator.py
-```
+are seeded** — create them in the app. Everything under `data/` is real data, not disposable
+fixtures; back it up with `npm run backup:data`, and note the automatic rotating snapshots the
+server writes to `data/.backups/` on each boot (see [Backups](#backups)).
 
 Production:
 
@@ -84,6 +80,8 @@ python simulators/checkpoint_simulator.py
 | `MAX_ATTACHMENTS` | `10` | Per-issue attachment cap |
 | `WATCH_FILES` | `false` | Re-sync the store when data files are edited by hand (covers Checkpoint dirs too) |
 | `CHECKPOINT_WORKDIR` | `process.cwd()` | Base directory runner working-dirs resolve from when a Checkpoint run executes |
+| `DATA_SNAPSHOTS` | `true` | Write a rotating boot snapshot of the JSON data to `data/.backups/` |
+| `DATA_SNAPSHOT_KEEP` | `10` | How many boot snapshots to retain |
 | `PORT` | `3000` | adapter-node port |
 
 ## Data layout
@@ -105,6 +103,23 @@ data/
 Issue IDs are per-application (`CHR-14`); Checkpoint mirrors this (`TC-CHR-12`, `SUITE-CHR-4`,
 `RUN-CHR-31`). Storage files are per-module. The whole `data/` directory is self-contained —
 zip it, commit it, or rsync it to move the system.
+
+## Backups
+
+The `data/` files are the database. Two safety nets protect them:
+
+- **Automatic boot snapshots.** On every server start, the small structured data (config +
+  all issue/Checkpoint JSON) is copied to a rotating restore point under `data/.backups/<ts>/`
+  (last 10 kept; `DATA_SNAPSHOTS=false` to disable, `DATA_SNAPSHOT_KEEP` to tune). `.backups`
+  is outside every reader and the watcher, so it never feeds back into the store. To restore,
+  copy a snapshot's folders back over `data/` and restart.
+- **On-demand full archive.** `npm run backup:data` tars all of `data/` (uploads included) to
+  `backups/data-<timestamp>.tar.gz`.
+
+> **Testing tip:** never run the app against `./data` for throwaway experiments and never
+> `rm` a `data/` subdirectory blindly — point `DATA_DIR` at a scratch dir instead
+> (`DATA_DIR=/tmp/scratch npm run preview`). If you must delete Checkpoint data, remove only
+> `data/tests`, `data/suites`, `data/runs`, `data/reports`, `data/runners.json`.
 
 ## Tests
 
