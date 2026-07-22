@@ -6,18 +6,19 @@
 	import { RESULT_META, TEST_KIND_META } from '$lib/checkpoint/meta';
 	import { CASE_STATUS_META } from '$lib/checkpoint/meta';
 	import { openFailures } from '$lib/stores/checkpoint-ui.svelte';
-	import { toast } from '$lib/stores/toasts.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import KindBadge from '$lib/components/checkpoint/KindBadge.svelte';
 	import PipMeter from '$lib/components/checkpoint/PipMeter.svelte';
 	import ResultDot from '$lib/components/checkpoint/ResultDot.svelte';
 	import CaseDrawer from '$lib/components/checkpoint/CaseDrawer.svelte';
 	import CaseFormModal from '$lib/components/checkpoint/CaseFormModal.svelte';
+	import CaseImportModal from '$lib/components/checkpoint/CaseImportModal.svelte';
 
 	let { data } = $props();
 
 	let showForm = $state(false);
 	let formCase = $state<TestCase | null>(null);
+	let showImport = $state(false);
 
 	const RESULT_FILTERS: Array<{ key: ResultStatus | 'none'; label: string }> = [
 		{ key: 'pass', label: 'Passing' },
@@ -130,7 +131,7 @@
 			<button class="btn btn-ghost" onclick={() => openFailures({ kind: 'filter', query: page.url.search.slice(1) })}>
 				<Icon name="markdown" /> Failures → Markdown
 			</button>
-			<button class="btn btn-ghost" onclick={() => toast('Import', 'JSON / CSV, or discover from a runner report')}>
+			<button class="btn btn-ghost" onclick={() => (showImport = true)}>
 				<Icon name="upload" /> Import
 			</button>
 			<button class="btn btn-primary" onclick={newCase}><Icon name="plus" /> New case</button>
@@ -194,4 +195,8 @@
 		nextId={data.nextCaseIds}
 		onClose={() => (showForm = false)}
 	/>
+{/if}
+
+{#if showImport}
+	<CaseImportModal filterQuery={page.url.search.slice(1)} onClose={() => (showImport = false)} />
 {/if}
