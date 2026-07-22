@@ -237,6 +237,11 @@
 .cp .btn svg {
 	width: 15px;
 	height: 15px;
+	/* Always take the button's own colour — never a leaked ancestor rule. */
+	color: inherit;
+	opacity: 1;
+	margin: 0;
+	flex: 0 0 auto;
 }
 .cp .btn-primary {
 	background: var(--ws);
@@ -1994,6 +1999,14 @@
 	max-width: 330px;
 	color: var(--muted);
 }
+/* IssueDesk's global `.empty svg` (app.css: faint, opacity .5, margin-bottom
+   10px, 40px) would otherwise grey out, fade and vertically offset every icon
+   inside a Checkpoint empty state — including the primary button's icon. */
+.cp .empty svg {
+	color: inherit;
+	opacity: 1;
+	margin: 0;
+}
 .cp .empty-in .ei {
 	width: 54px;
 	height: 54px;
@@ -2004,6 +2017,10 @@
 	place-items: center;
 	margin: 0 auto 15px;
 	color: var(--faint);
+}
+.cp .empty-in .ei svg {
+	width: 24px;
+	height: 24px;
 }
 .cp .empty-in h3 {
 	font-family: var(--font-display);
