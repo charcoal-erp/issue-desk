@@ -268,3 +268,46 @@ export const checkpointSequenceSchema = z.object({
 	suite: z.number().int().positive().default(1),
 	run: z.number().int().positive().default(1)
 });
+
+// ---------- Checkpoint form / action inputs ----------
+export const createTestCaseInputSchema = z.object({
+	appId: z.string().min(1, 'Application is required'),
+	moduleId: z.string().min(1, 'Module is required'),
+	page: z.string().trim().max(200).optional(),
+	form: z.string().trim().max(200).optional(),
+	title: z.string().trim().min(1, 'Title is required').max(200, 'Keep the title under 200 characters'),
+	preconditions: z.string().optional(),
+	steps: z.array(testStepSchema).default([]),
+	priority: z.enum(PRIORITIES),
+	status: z.enum(TEST_CASE_STATUSES),
+	tags: z.array(z.string()).default([]),
+	kind: z.enum(TEST_KINDS),
+	runnerId: z.string().nullable().default(null),
+	specPath: z.string().nullable().default(null),
+	externalTestId: z.string().nullable().default(null),
+	parentIssueId: z.string().nullable().default(null),
+	suiteIds: z.array(z.string()).default([])
+});
+
+export const createSuiteInputSchema = z.object({
+	appId: z.string().min(1, 'Application is required'),
+	name: z.string().trim().min(1, 'Name is required').max(120),
+	description: z.string().optional(),
+	caseIds: z.array(z.string()).default([]),
+	defaultEnv: z.enum(SUITE_ENVIRONMENTS),
+	tags: z.array(z.string()).default([])
+});
+
+export const createRunnerInputSchema = z.object({
+	name: z.string().trim().min(1, 'Name is required').max(120),
+	kind: z.enum(TEST_KINDS),
+	language: z.enum(RUNNER_LANGUAGES),
+	command: z.string().default(''),
+	workingDir: z.string().default(''),
+	env: z.record(z.string(), z.string()).optional(),
+	reportFormat: z.enum(REPORT_FORMATS),
+	reportPath: z.string().default(''),
+	matchStrategy: matchStrategySchema,
+	timeoutSec: z.number().int().positive().optional(),
+	enabled: z.boolean().default(true)
+});
