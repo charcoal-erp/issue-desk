@@ -40,12 +40,9 @@
 <svelte:window onclick={onWindowClick} />
 
 <div class="wsw">
-	<button class="wsw-btn" onclick={toggle} aria-haspopup="menu" aria-expanded={open}>
+	<button class="wsw-btn" onclick={toggle} aria-haspopup="menu" aria-expanded={open} aria-label="Switch workspace">
 		<span class="wdot" style="background:{active.color}"></span>
-		<span class="wtxt">
-			<span class="wsub">Workspace</span>
-			<span class="wn">{active.name}</span>
-		</span>
+		<span class="wn">{active.name}</span>
 		<Icon name="chevron" />
 	</button>
 
@@ -75,9 +72,10 @@
 	.wsw-btn {
 		display: flex;
 		align-items: center;
-		gap: 9px;
+		gap: 10px;
 		height: 40px;
-		padding: 0 10px;
+		min-width: 186px;
+		padding: 0 13px;
 		border-radius: 10px;
 		border: 1px solid var(--line);
 		background: var(--surface);
@@ -92,25 +90,15 @@
 		border-radius: 3px;
 		flex: 0 0 9px;
 	}
-	.wtxt {
-		text-align: left;
-		line-height: 1.1;
-	}
-	.wsub {
-		display: block;
-		font-size: 9.5px;
-		text-transform: uppercase;
-		letter-spacing: 0.06em;
-		color: var(--faint);
-		font-weight: 600;
-	}
 	.wn {
-		display: block;
+		flex: 1;
+		text-align: left;
 		font-family: var(--font-display);
 		font-size: 15px;
 		font-weight: 600;
 		letter-spacing: -0.01em;
 		color: var(--ink);
+		white-space: nowrap;
 	}
 	.wsw-btn :global(svg) {
 		width: 14px;
