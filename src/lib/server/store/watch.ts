@@ -14,10 +14,21 @@ export async function startWatcherIfEnabled(reload: () => Promise<void>): Promis
 	watching = true;
 	const { watch } = await import('chokidar');
 	let timer: ReturnType<typeof setTimeout> | undefined;
-	watch([path.join(dataDir(), 'config'), path.join(dataDir(), 'issues')], {
-		ignoreInitial: true,
-		ignored: (p) => p.endsWith('.tmp')
-	}).on('all', () => {
+	watch(
+		[
+			path.join(dataDir(), 'config'),
+			path.join(dataDir(), 'issues'),
+			// Checkpoint data directories + the global runner catalogue.
+			path.join(dataDir(), 'tests'),
+			path.join(dataDir(), 'suites'),
+			path.join(dataDir(), 'runs'),
+			path.join(dataDir(), 'runners.json')
+		],
+		{
+			ignoreInitial: true,
+			ignored: (p) => p.endsWith('.tmp')
+		}
+	).on('all', () => {
 		clearTimeout(timer);
 		timer = setTimeout(() => {
 			console.log('[issuedesk] Data files changed on disk — re-syncing store');

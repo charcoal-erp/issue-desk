@@ -96,7 +96,7 @@
 		</div>
 		<form
 			method="POST"
-			action={editing ? '/?/updateIssue' : '/?/createIssue'}
+			action={editing ? '/desk?/updateIssue' : '/desk?/createIssue'}
 			use:enhance={() => {
 				saving = true;
 				return async ({ result }) => {

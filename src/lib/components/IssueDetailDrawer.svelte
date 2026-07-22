@@ -5,7 +5,7 @@
 	import type { Application, Issue, User } from '$lib/types';
 	import { STATUS_ORDER, STATUS_META } from '$lib/status';
 	import { PRIORITY_META } from '$lib/priority';
-	import { fmtDate } from '$lib/format';
+	import { fmtDate, fmtDateTime, fmtWhen } from '$lib/format';
 	import { postAction } from '$lib/actions';
 	import { singleIssueMarkdown } from '$lib/export/copyIssue';
 	import { toast } from '$lib/stores/toasts.svelte';
@@ -98,6 +98,12 @@
 			<h2 id="drawer-title">{issue.title}</h2>
 		</div>
 		<div class="dr-body">
+			{#if issue.testCaseId}
+				<a class="test-origin" href="/qa/cases?case={issue.testCaseId}">
+					<Icon name="task" />
+					<span>Filed from test <b>{issue.testCaseId}</b>{issue.runId ? ` · run ${issue.runId}` : ''} — open in Checkpoint</span>
+				</a>
+			{/if}
 			<div class="dr-quick">
 				<button class="btn btn-ghost btn-sm" onclick={() => openEditIssue(issue)}>
 					<Icon name="edit" />Edit
@@ -138,6 +144,20 @@
 						{:else}
 							<span style="color:var(--faint)">Unassigned</span>
 						{/if}
+					</span>
+				</div>
+				<div class="row">
+					<span class="rk">Reported</span>
+					<span class="rv" title={fmtDateTime(issue.createdAt)}>
+						{fmtWhen(issue.createdAt)}
+						<span style="color:var(--faint);font-size:12px">· {fmtDateTime(issue.createdAt)}</span>
+					</span>
+				</div>
+				<div class="row">
+					<span class="rk">Last modified</span>
+					<span class="rv" title={fmtDateTime(issue.updatedAt)}>
+						{fmtWhen(issue.updatedAt)}
+						<span style="color:var(--faint);font-size:12px">· {fmtDateTime(issue.updatedAt)}</span>
 					</span>
 				</div>
 				<div class="row">
@@ -207,3 +227,30 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	.test-origin {
+		display: flex;
+		align-items: center;
+		gap: 9px;
+		background: #e0f5f3;
+		border: 1px solid #b8e6e1;
+		border-radius: 11px;
+		padding: 10px 13px;
+		margin-bottom: 16px;
+		font-size: 12.5px;
+		color: #0b6a62;
+		text-decoration: none;
+	}
+	.test-origin :global(svg) {
+		width: 15px;
+		height: 15px;
+		flex: 0 0 15px;
+	}
+	.test-origin b {
+		font-family: var(--font-mono);
+	}
+	.test-origin:hover {
+		border-color: #0d9488;
+	}
+</style>

@@ -8,6 +8,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"test": "vitest run",
+		"backup:data": "mkdir -p backups && tar czf backups/data-$(date +%Y%m%d-%H%M%S).tar.gz --exclude='data/.backups' data && echo 'Archived data/ (incl. uploads) to backups/'",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"

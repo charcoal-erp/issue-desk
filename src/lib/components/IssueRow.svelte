@@ -2,7 +2,7 @@
 	import type { Issue, User } from '$lib/types';
 	import { PRIORITY_META } from '$lib/priority';
 	import { STATUS_META } from '$lib/status';
-	import { fmtDate } from '$lib/format';
+	import { fmtDateTime, fmtWhen } from '$lib/format';
 	import Avatar from './Avatar.svelte';
 	import AppChip from './AppChip.svelte';
 	import Icon from './Icon.svelte';
@@ -62,7 +62,8 @@
 			<span class="att-none">—</span>
 		{/if}
 	</td>
-	<td class="upd">{fmtDate(issue.updatedAt)}</td>
+	<td class="upd" title="Reported {fmtDateTime(issue.createdAt)}">{fmtWhen(issue.createdAt)}</td>
+	<td class="upd" title="Last modified {fmtDateTime(issue.updatedAt)}">{fmtWhen(issue.updatedAt)}</td>
 	<td onclick={(e) => e.stopPropagation()}>
 		<div class="row-actions">
 			<button title="Edit" onclick={() => onEdit(issue)}><Icon name="edit" /></button>

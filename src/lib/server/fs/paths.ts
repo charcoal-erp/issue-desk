@@ -30,6 +30,45 @@ export function sequenceFile(appId: string): string {
 	return path.join(issuesDir(appId), '_sequence.json');
 }
 
+// ---------- Checkpoint directories (design doc §9) ----------
+export function testsDir(appId?: string): string {
+	return appId ? path.join(dataDir(), 'tests', appId) : path.join(dataDir(), 'tests');
+}
+
+export function testModuleFile(appId: string, moduleId: string): string {
+	return path.join(testsDir(appId), `${moduleId}.json`);
+}
+
+/** Per-app Checkpoint counters (testCase / suite / run), kept beside the cases. */
+export function checkpointSequenceFile(appId: string): string {
+	return path.join(testsDir(appId), '_sequence.json');
+}
+
+export function suitesDir(): string {
+	return path.join(dataDir(), 'suites');
+}
+
+export function suitesFile(appId: string): string {
+	return path.join(suitesDir(), `${appId}.json`);
+}
+
+export function runsDir(appId?: string): string {
+	return appId ? path.join(dataDir(), 'runs', appId) : path.join(dataDir(), 'runs');
+}
+
+export function runFile(appId: string, runId: string): string {
+	return path.join(runsDir(appId), `${runId}.json`);
+}
+
+export function runnersFile(): string {
+	return path.join(dataDir(), 'runners.json');
+}
+
+/** Captured raw reports & artifacts, copied in at ingest for stable paths. */
+export function reportsDir(runId?: string): string {
+	return runId ? path.join(dataDir(), 'reports', runId) : path.join(dataDir(), 'reports');
+}
+
 export function uploadsDir(appId?: string, issueId?: string): string {
 	const base = path.join(dataDir(), 'uploads');
 	if (!appId) return base;

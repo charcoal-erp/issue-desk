@@ -11,7 +11,7 @@ import {
 import type { Application, Issue, Settings, User } from '$lib/types';
 import { configDir, issuesDir } from './paths';
 
-async function readJson(filePath: string): Promise<unknown | undefined> {
+export async function readJson(filePath: string): Promise<unknown | undefined> {
 	try {
 		return JSON.parse(await readFile(filePath, 'utf8'));
 	} catch (e) {
@@ -23,7 +23,7 @@ async function readJson(filePath: string): Promise<unknown | undefined> {
 }
 
 /** Parse with a schema; log + return undefined instead of crashing boot (NFR-6). */
-function safeParse<T>(schema: z.ZodType<T>, value: unknown, source: string): T | undefined {
+export function safeParse<T>(schema: z.ZodType<T>, value: unknown, source: string): T | undefined {
 	const result = schema.safeParse(value);
 	if (!result.success) {
 		console.error(`[issuedesk] Skipping invalid ${source}:`, result.error.message);

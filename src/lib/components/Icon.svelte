@@ -104,6 +104,40 @@
 		task: {
 			paths: '<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
 			sw: 2
+		},
+		'arrow-right': { paths: '<path d="M5 12h14"/><path d="M13 6l6 6-6 6"/>', sw: 2.2 },
+		'arrow-up': { paths: '<path d="M12 19V5M5 12l7-7 7 7"/>', sw: 2.2 },
+		'arrow-down': { paths: '<path d="M12 5v14M5 12l7 7 7-7"/>', sw: 2.2 },
+		// Checkpoint nav + kind icons
+		layers: {
+			paths: '<path d="M12 2l9 5-9 5-9-5 9-5z"/><path d="M3 12l9 5 9-5"/><path d="M3 17l9 5 9-5"/>',
+			sw: 1.8
+		},
+		play: { paths: '<path d="M5 3l14 9-14 9V3z"/>', sw: 2 },
+		terminal: {
+			paths: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 9l3 3-3 3"/><path d="M13 15h5"/>',
+			sw: 2
+		},
+		flask: {
+			paths: '<path d="M9 2h6"/><path d="M10 2v6l-4.6 9A2 2 0 0 0 7.2 20h9.6a2 2 0 0 0 1.8-3L14 8V2"/><path d="M7 14h10"/>',
+			sw: 1.8
+		},
+		code: { paths: '<path d="M16 18l6-6-6-6M8 6l-6 6 6 6"/>', sw: 2 },
+		monitor: {
+			paths: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+			sw: 2
+		},
+		eye: {
+			paths: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/>',
+			sw: 2
+		},
+		link: {
+			paths: '<path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5"/>',
+			sw: 2
+		},
+		trash: {
+			paths: '<path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>',
+			sw: 2
 		}
 	};
 
