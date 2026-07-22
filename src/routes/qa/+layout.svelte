@@ -1,64 +1,74 @@
 <script lang="ts">
-	import WorkspaceSwitcher from '$lib/components/WorkspaceSwitcher.svelte';
+	import '$lib/checkpoint.css';
+	import { page } from '$app/state';
 	import Icon from '$lib/components/Icon.svelte';
+	import WorkspaceSwitcher from '$lib/components/WorkspaceSwitcher.svelte';
+	import { openFailures } from '$lib/stores/checkpoint-ui.svelte';
 
-	let { children } = $props();
+	let { data, children } = $props();
+
+	const NAV = [
+		{ href: '/qa', label: 'Dashboard', icon: 'dashboard' },
+		{ href: '/qa/cases', label: 'Cases', icon: 'task' },
+		{ href: '/qa/suites', label: 'Suites', icon: 'layers' },
+		{ href: '/qa/runs', label: 'Runs', icon: 'play' },
+		{ href: '/qa/runners', label: 'Runners', icon: 'terminal' }
+	];
+
+	function isActive(href: string): boolean {
+		return href === '/qa' ? page.url.pathname === '/qa' : page.url.pathname.startsWith(href);
+	}
+
+	const currentUser = $derived(data.users.find((u) => u.id === data.currentUserId) ?? data.users[0]);
+	const initials = $derived(
+		(currentUser?.name ?? 'QA')
+			.split(/\s+/)
+			.slice(0, 2)
+			.map((s) => s[0])
+			.join('')
+			.toUpperCase()
+	);
+	const firstName = $derived((currentUser?.name ?? 'QA').split(/\s+/)[0]);
 </script>
 
 <svelte:head>
 	<title>Checkpoint — test management</title>
 </svelte:head>
 
-<div class="qa-shell">
-	<header class="qa-topbar">
-		<a class="qa-brand" href="/qa" aria-label="Checkpoint home">
-			<span class="qa-mark"><Icon name="task" /></span>
-		</a>
+<div class="cp">
+	<header class="topbar">
+		<a class="bm" href="/qa" aria-label="Checkpoint home"><Icon name="task" /></a>
 		<WorkspaceSwitcher current="qa" />
+		<div class="topbar-spacer"></div>
+		<div class="topsearch">
+			<Icon name="search" />
+			<input placeholder="Search cases, suites, runs…" aria-label="Search Checkpoint" />
+		</div>
+		<button
+			class="icon-btn"
+			title="Export failures for Claude Code"
+			aria-label="Export failures"
+			onclick={() => openFailures({ kind: 'all' })}
+		>
+			<Icon name="code" />
+		</button>
+		<span class="user-btn">
+			<span class="ua">{initials}</span>
+			<span class="un">{firstName}</span>
+		</span>
 	</header>
-	<div class="qa-body">
-		{@render children()}
+
+	<div class="body">
+		<nav class="nav">
+			{#each NAV as item (item.href)}
+				<a class="nav-item" class:active={isActive(item.href)} href={item.href}>
+					<Icon name={item.icon} />
+					<span>{item.label}</span>
+				</a>
+			{/each}
+		</nav>
+		<div class="workspace">
+			{@render children()}
+		</div>
 	</div>
 </div>
-
-<style>
-	.qa-shell {
-		display: flex;
-		flex-direction: column;
-		height: 100vh;
-		overflow: hidden;
-		background: var(--paper);
-	}
-	.qa-topbar {
-		height: 58px;
-		flex: 0 0 58px;
-		display: flex;
-		align-items: center;
-		gap: 14px;
-		padding: 0 20px;
-		background: var(--surface);
-		border-bottom: 1px solid var(--line);
-	}
-	.qa-brand {
-		text-decoration: none;
-	}
-	.qa-mark {
-		width: 30px;
-		height: 30px;
-		border-radius: 9px;
-		background: linear-gradient(140deg, #0d9488, #3fbfb0);
-		display: grid;
-		place-items: center;
-		box-shadow: 0 3px 10px rgba(13, 148, 136, 0.35);
-	}
-	.qa-mark :global(svg) {
-		width: 17px;
-		height: 17px;
-		color: #fff;
-	}
-	.qa-body {
-		flex: 1;
-		min-height: 0;
-		overflow: auto;
-	}
-</style>
