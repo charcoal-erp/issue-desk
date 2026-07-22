@@ -24,7 +24,7 @@ export function parseFilter(params: URLSearchParams): IssueFilter {
 	const updatedTo = params.get('updatedTo');
 	if (updatedTo) filter.updatedTo = updatedTo;
 	const sort = params.get('sort');
-	if (sort && ['id', 'title', 'priority', 'status', 'updated'].includes(sort))
+	if (sort && ['id', 'title', 'priority', 'status', 'updated', 'created'].includes(sort))
 		filter.sort = sort as IssueFilter['sort'];
 	const dir = params.get('dir');
 	if (dir === 'asc' || dir === 'desc') filter.dir = dir;

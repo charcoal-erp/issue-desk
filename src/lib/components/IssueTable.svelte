@@ -46,6 +46,7 @@
 					<th class="sortable" onclick={() => onSort('status')}>Status <span class="sarrow">{arrow('status')}</span></th>
 					<th>Assignee</th>
 					<th>Files</th>
+					<th class="sortable" onclick={() => onSort('created')}>Reported <span class="sarrow">{arrow('created')}</span></th>
 					<th class="sortable" onclick={() => onSort('updated')}>Updated <span class="sarrow">{arrow('updated')}</span></th>
 					<th></th>
 				</tr>

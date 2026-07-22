@@ -37,11 +37,12 @@
 
 	function sortBy(key: NonNullable<IssueFilter['sort']>) {
 		const current = data.filter.sort ?? 'updated';
-		const currentDir = data.filter.dir ?? (current === 'priority' || current === 'updated' ? 'desc' : 'asc');
+		const newestFirst = (k: string) => k === 'priority' || k === 'updated' || k === 'created';
+		const currentDir = data.filter.dir ?? (newestFirst(current) ? 'desc' : 'asc');
 		if (current === key) {
 			navigate({ sort: key, dir: currentDir === 'asc' ? 'desc' : 'asc' });
 		} else {
-			navigate({ sort: key, dir: key === 'priority' || key === 'updated' ? 'desc' : 'asc' });
+			navigate({ sort: key, dir: newestFirst(key) ? 'desc' : 'asc' });
 		}
 	}
 

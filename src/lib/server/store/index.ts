@@ -162,6 +162,10 @@ export function list(filter: IssueFilter): { rows: Issue[]; total: number } {
 				av = a.title.toLowerCase();
 				bv = b.title.toLowerCase();
 				break;
+			case 'created':
+				av = a.createdAt;
+				bv = b.createdAt;
+				break;
 			default:
 				av = a.updatedAt;
 				bv = b.updatedAt;

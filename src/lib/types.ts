@@ -126,7 +126,7 @@ export interface IssueFilter {
 	tag?: string;
 	updatedFrom?: string; // ISO date
 	updatedTo?: string;
-	sort?: 'id' | 'title' | 'priority' | 'status' | 'updated';
+	sort?: 'id' | 'title' | 'priority' | 'status' | 'updated' | 'created';
 	dir?: 'asc' | 'desc';
 	page?: number;
 	pageSize?: number;

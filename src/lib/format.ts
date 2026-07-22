@@ -4,6 +4,43 @@ export function fmtDate(iso: string): string {
 	return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
 }
 
+/**
+ * Human "when" for table cells and meta rows:
+ * "just now" · "12m ago" · "5h ago" · "yesterday" · "3d ago" · "16 Jul" · "16 Jul 2025".
+ * Pair it with {@link fmtDateTime} as a `title` so the exact instant stays available.
+ */
+export function fmtWhen(iso: string, now: Date = new Date()): string {
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return '—';
+	const ms = now.getTime() - d.getTime();
+	if (ms < 0) return fmtDate(iso); // clock skew / future-dated
+	if (ms < 60_000) return 'just now';
+	const mins = Math.floor(ms / 60_000);
+	if (mins < 60) return `${mins}m ago`;
+	const hrs = Math.floor(mins / 60);
+	if (hrs < 24) return `${hrs}h ago`;
+	const days = Math.round((startOfDay(now).getTime() - startOfDay(d).getTime()) / 86_400_000);
+	if (days === 1) return 'yesterday';
+	if (days < 7) return `${days}d ago`;
+	return d.getFullYear() === now.getFullYear()
+		? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
+		: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+/** "20 Jul 2026, 17:54" — the exact instant, for tooltips. */
+export function fmtDateTime(iso: string): string {
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return '—';
+	return d.toLocaleString('en-GB', {
+		day: '2-digit',
+		month: 'short',
+		year: 'numeric',
+		hour: '2-digit',
+		minute: '2-digit',
+		hour12: false
+	});
+}
+
 /** "today" / "yesterday" / "3d ago" — activity feed. */
 export function relDate(iso: string, now: Date = new Date()): string {
 	const d = new Date(iso);

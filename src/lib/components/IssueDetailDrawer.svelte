@@ -5,7 +5,7 @@
 	import type { Application, Issue, User } from '$lib/types';
 	import { STATUS_ORDER, STATUS_META } from '$lib/status';
 	import { PRIORITY_META } from '$lib/priority';
-	import { fmtDate } from '$lib/format';
+	import { fmtDate, fmtDateTime, fmtWhen } from '$lib/format';
 	import { postAction } from '$lib/actions';
 	import { singleIssueMarkdown } from '$lib/export/copyIssue';
 	import { toast } from '$lib/stores/toasts.svelte';
@@ -144,6 +144,20 @@
 						{:else}
 							<span style="color:var(--faint)">Unassigned</span>
 						{/if}
+					</span>
+				</div>
+				<div class="row">
+					<span class="rk">Reported</span>
+					<span class="rv" title={fmtDateTime(issue.createdAt)}>
+						{fmtWhen(issue.createdAt)}
+						<span style="color:var(--faint);font-size:12px">· {fmtDateTime(issue.createdAt)}</span>
+					</span>
+				</div>
+				<div class="row">
+					<span class="rk">Last modified</span>
+					<span class="rv" title={fmtDateTime(issue.updatedAt)}>
+						{fmtWhen(issue.updatedAt)}
+						<span style="color:var(--faint);font-size:12px">· {fmtDateTime(issue.updatedAt)}</span>
 					</span>
 				</div>
 				<div class="row">
