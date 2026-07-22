@@ -145,6 +145,9 @@ export interface CreateIssueInput {
 	assigneeId?: string;
 	tags: string[];
 	attachments: Attachment[];
+	// Set when the issue is filed from a failed Checkpoint test (§13).
+	testCaseId?: string;
+	runId?: string;
 }
 
 export type UpdateIssueInput = Partial<CreateIssueInput>;

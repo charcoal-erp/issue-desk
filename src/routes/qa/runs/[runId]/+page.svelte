@@ -1,8 +1,10 @@
 <script lang="ts">
+	import { deserialize } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import type { ResultStatus } from '$lib/types';
 	import { ENV_LABEL, RESULT_META, formatDuration, rateColor } from '$lib/checkpoint/meta';
 	import { openFailures } from '$lib/stores/checkpoint-ui.svelte';
+	import { toast } from '$lib/stores/toasts.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import KindBadge from '$lib/components/checkpoint/KindBadge.svelte';
 	import ProgressBar from '$lib/components/checkpoint/ProgressBar.svelte';
@@ -11,19 +13,43 @@
 	const run = $derived(data.run);
 	const TOGGLE: ResultStatus[] = ['pass', 'fail', 'blocked', 'skipped'];
 
-	async function mark(caseId: string, status: ResultStatus) {
+	async function post(action: string, caseId: string, extra: Record<string, string> = {}) {
 		const body = new FormData();
 		body.set('caseId', caseId);
-		body.set('status', status);
-		await fetch(`/qa/runs/${run.id}?/recordResult`, {
+		for (const [k, v] of Object.entries(extra)) body.set(k, v);
+		const res = await fetch(`/qa/runs/${run.id}?/${action}`, {
 			method: 'POST',
 			headers: { 'x-sveltekit-action': 'true' },
 			body
 		});
+		return deserialize(await res.text());
+	}
+	async function mark(caseId: string, status: ResultStatus) {
+		await post('recordResult', caseId, { status });
 		await invalidateAll();
+	}
+	async function fileBug(caseId: string) {
+		const r = await post('createBugFromResult', caseId);
+		if (r.type === 'success') {
+			toast(`Filed ${(r.data as { issueId?: string })?.issueId ?? 'bug'}`, 'Opened in IssueDesk');
+			await invalidateAll();
+		} else {
+			toast('Could not file bug', 'Try again');
+		}
 	}
 	const isFail = (s: ResultStatus) => s === 'fail' || s === 'blocked';
 </script>
+
+{#snippet rowActions(row: { status: ResultStatus; testCaseId: string; issueId: string | null })}
+	{#if isFail(row.status)}
+		{#if row.issueId}
+			<a class="issue-chip" href="/desk/issues/{row.issueId}">{row.issueId}</a>
+		{:else}
+			<button class="btn btn-ghost btn-xs" onclick={() => fileBug(row.testCaseId)}><Icon name="bug" /> File bug</button>
+		{/if}
+		<button class="btn btn-danger btn-xs" onclick={() => openFailures({ kind: 'case', caseId: row.testCaseId })}>Markdown</button>
+	{/if}
+{/snippet}
 
 <div class="table-area">
 	<div class="toolbar">
@@ -82,7 +108,7 @@
 							<div class="xr-m">{row.testCaseId} · {row.specPath ?? 'no spec'}</div>
 						</div>
 						<span class="xr-dur">{formatDuration(row.durationMs)}</span>
-						{#if isFail(row.status)}<button class="btn btn-danger btn-xs" onclick={() => openFailures({ kind: 'case', caseId: row.testCaseId })}>Markdown</button>{/if}
+						{@render rowActions(row)}
 					</div>
 					{#if isFail(row.status) && (row.stack || row.message)}
 						<div class="err-box">{row.stack || row.message}</div>
@@ -112,7 +138,7 @@
 								<button class:on-pass={!row.pending && row.status === s && s === 'pass'} class:on-fail={!row.pending && row.status === s && s === 'fail'} class:on-blocked={!row.pending && row.status === s && s === 'blocked'} class:on-skipped={!row.pending && row.status === s && s === 'skipped'} onclick={() => mark(row.testCaseId, s)}>{s}</button>
 							{/each}
 						</div>
-						{#if isFail(row.status)}<button class="btn btn-danger btn-xs" onclick={() => openFailures({ kind: 'case', caseId: row.testCaseId })}>Markdown</button>{/if}
+						{@render rowActions(row)}
 					</div>
 				{/each}
 			</div>

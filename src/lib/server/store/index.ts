@@ -248,6 +248,8 @@ export async function create(
 			assigneeId: input.assigneeId || undefined,
 			tags: input.tags,
 			attachments,
+			testCaseId: input.testCaseId,
+			runId: input.runId,
 			activity: [{ id: uuidv7(), at: now, by: actor, kind: 'created' }],
 			createdAt: now,
 			updatedAt: now

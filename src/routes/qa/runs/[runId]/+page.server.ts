@@ -2,8 +2,14 @@ import { error, fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import * as cp from '$lib/server/store/checkpoint';
 import * as store from '$lib/server/store';
+
+function actor(cookies: { get(name: string): string | undefined }): string {
+	const id = cookies.get('issuedesk_user');
+	return store.users().some((u) => u.id === id) ? id! : (store.users()[0]?.id ?? 'system');
+}
 import { runCounts, runPassRate } from '$lib/server/checkpoint/metrics';
 import { PENDING_NOTE } from '$lib/server/checkpoint/dispatch';
+import { resultToIssueInput } from '$lib/server/checkpoint/toIssue';
 import { timeAgo } from '$lib/checkpoint/meta';
 import { RESULT_STATUSES, type CaseResult, type ResultStatus, type TestKind } from '$lib/types';
 
@@ -105,6 +111,29 @@ export const actions: Actions = {
 		try {
 			await cp.completeRun(params.runId);
 			return { ok: true };
+		} catch (e) {
+			return fail(400, { error: (e as Error).message });
+		}
+	},
+
+	// Fail → bug: create an IssueDesk issue prefilled from the failed result and
+	// link both sides (design §13).
+	createBugFromResult: async ({ request, cookies, params }) => {
+		await cp.ensureLoaded();
+		await store.ensureLoaded();
+		const form = await request.formData();
+		const caseId = String(form.get('caseId') || '');
+		const c = cp.getCase(caseId);
+		const run = cp.getRun(params.runId);
+		const result = run?.results.find((r) => r.testCaseId === caseId);
+		if (!c || !run || !result) return fail(400, { error: 'Result not found' });
+		try {
+			const runner = c.runnerId ? cp.runner(c.runnerId) : undefined;
+			const input = { ...resultToIssueInput(c, result, run, runner), testCaseId: c.id, runId: run.id };
+			const issue = await store.create(input, actor(cookies));
+			await cp.recordResult(run.id, { ...result, issueId: issue.id });
+			await cp.addFiledIssueToCase(c.id, issue.id);
+			return { issueId: issue.id };
 		} catch (e) {
 			return fail(400, { error: (e as Error).message });
 		}

@@ -98,6 +98,12 @@
 			<h2 id="drawer-title">{issue.title}</h2>
 		</div>
 		<div class="dr-body">
+			{#if issue.testCaseId}
+				<a class="test-origin" href="/qa/cases?case={issue.testCaseId}">
+					<Icon name="task" />
+					<span>Filed from test <b>{issue.testCaseId}</b>{issue.runId ? ` · run ${issue.runId}` : ''} — open in Checkpoint</span>
+				</a>
+			{/if}
 			<div class="dr-quick">
 				<button class="btn btn-ghost btn-sm" onclick={() => openEditIssue(issue)}>
 					<Icon name="edit" />Edit
@@ -207,3 +213,30 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	.test-origin {
+		display: flex;
+		align-items: center;
+		gap: 9px;
+		background: #e0f5f3;
+		border: 1px solid #b8e6e1;
+		border-radius: 11px;
+		padding: 10px 13px;
+		margin-bottom: 16px;
+		font-size: 12.5px;
+		color: #0b6a62;
+		text-decoration: none;
+	}
+	.test-origin :global(svg) {
+		width: 15px;
+		height: 15px;
+		flex: 0 0 15px;
+	}
+	.test-origin b {
+		font-family: var(--font-mono);
+	}
+	.test-origin:hover {
+		border-color: #0d9488;
+	}
+</style>

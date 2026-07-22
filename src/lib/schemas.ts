@@ -133,7 +133,9 @@ export const createIssueSchema = z.object({
 	status: z.enum(STATUSES),
 	assigneeId: z.string().optional(),
 	tags: z.array(z.string()).default([]),
-	attachments: z.array(attachmentSchema).default([])
+	attachments: z.array(attachmentSchema).default([]),
+	testCaseId: z.string().optional(),
+	runId: z.string().optional()
 });
 
 export const updateIssueSchema = createIssueSchema.partial();
