@@ -3,6 +3,7 @@
 	import { page } from '$app/state';
 	import Icon from '$lib/components/Icon.svelte';
 	import WorkspaceSwitcher from '$lib/components/WorkspaceSwitcher.svelte';
+	import LaunchModal from '$lib/components/checkpoint/LaunchModal.svelte';
 	import { openFailures } from '$lib/stores/checkpoint-ui.svelte';
 
 	let { data, children } = $props();
@@ -72,3 +73,5 @@
 		</div>
 	</div>
 </div>
+
+<LaunchModal suites={data.launchSuites} runners={data.launchRunners} />

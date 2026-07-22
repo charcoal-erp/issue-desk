@@ -566,3 +566,23 @@ export async function saveRun(run: TestRun): Promise<TestRun> {
 		return run;
 	});
 }
+
+/** Record or replace one case's result in a run (manual marking / bug link). */
+export async function recordResult(runId: string, result: CaseResult): Promise<TestRun> {
+	await ensureLoaded();
+	const run = runsById.get(runId);
+	if (!run) throw new Error(`Run ${runId} not found`);
+	const results = run.results.filter(
+		(r) => !(r.testCaseId === result.testCaseId && r.runnerId === result.runnerId)
+	);
+	results.push(result);
+	return saveRun({ ...run, results });
+}
+
+/** Mark a run complete (immutable history from here on). */
+export async function completeRun(runId: string): Promise<TestRun> {
+	await ensureLoaded();
+	const run = runsById.get(runId);
+	if (!run) throw new Error(`Run ${runId} not found`);
+	return saveRun({ ...run, completedAt: run.completedAt ?? new Date().toISOString() });
+}
