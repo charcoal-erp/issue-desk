@@ -4,8 +4,13 @@
 	import type { User } from '$lib/types';
 	import Icon from './Icon.svelte';
 	import UserSwitcher from './UserSwitcher.svelte';
+	import WorkspaceSwitcher from './WorkspaceSwitcher.svelte';
 
-	let { users, currentUserId }: { users: User[]; currentUserId: string } = $props();
+	let {
+		users,
+		currentUserId,
+		workspace = 'desk'
+	}: { users: User[]; currentUserId: string; workspace?: 'desk' | 'qa' } = $props();
 
 	// Global search mirrors the table's `q` URL param (§13).
 	let value = $state(page.url.searchParams.get('q') ?? '');
@@ -21,10 +26,12 @@
 		clearTimeout(timer);
 		timer = setTimeout(() => {
 			const params =
-				page.url.pathname === '/' ? new URLSearchParams(page.url.searchParams) : new URLSearchParams();
+				page.url.pathname === '/desk'
+					? new URLSearchParams(page.url.searchParams)
+					: new URLSearchParams();
 			if (value.trim()) params.set('q', value.trim());
 			else params.delete('q');
-			goto(`/?${params}`, { keepFocus: true, noScroll: true, replaceState: true });
+			goto(`/desk?${params}`, { keepFocus: true, noScroll: true, replaceState: true });
 		}, 200);
 	}
 
@@ -34,11 +41,10 @@
 </script>
 
 <header class="topbar">
-	<a class="brand" href="/">
+	<a class="brand" href="/desk" aria-label="IssueDesk home">
 		<div class="mark"><Icon name="logo" /></div>
-		<div class="name">Issue<b>Desk</b></div>
-		<span class="tag">QA · Feature intake</span>
 	</a>
+	<WorkspaceSwitcher current={workspace} />
 	<div class="topbar-spacer"></div>
 	<div class="topsearch">
 		<Icon name="search" />
