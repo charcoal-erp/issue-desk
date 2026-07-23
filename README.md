@@ -115,6 +115,13 @@ The `data/` files are the database. Two safety nets protect them:
   copy a snapshot's folders back over `data/` and restart.
 - **On-demand full archive.** `npm run backup:data` tars all of `data/` (uploads included) to
   `backups/data-<timestamp>.tar.gz`.
+- **In-app export / import** (Admin → Data, or the API). `GET /api/data/export` downloads a
+  single zip with every issue across all applications — full details, activity, sequence
+  counters, config and all attachment binaries (Checkpoint content excluded). `POST
+  /api/data/import` (multipart field `file`, or a raw zip body) validates the archive, moves
+  the current `config/` + `issues/` + `uploads/` to `data/.backups/pre-import-<ts>/`, extracts
+  the snapshot and reloads the running app. Curl-friendly:
+  `curl -o ~/issuedesk-data.zip http://localhost:3000/api/data/export`.
 
 > **Testing tip:** never run the app against `./data` for throwaway experiments and never
 > `rm` a `data/` subdirectory blindly — point `DATA_DIR` at a scratch dir instead
