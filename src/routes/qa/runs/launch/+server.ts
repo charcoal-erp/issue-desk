@@ -2,8 +2,9 @@ import { error, json } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
 import * as cp from '$lib/server/store/checkpoint';
 import * as store from '$lib/server/store';
-import { dispatchRunner, pendingManualResult } from '$lib/server/checkpoint/dispatch';
-import type { CaseResult, SuiteEnvironment, TestCase, TestRun } from '$lib/types';
+import { executeRun, pendingManualResult, planLaunch } from '$lib/server/checkpoint/launch';
+import { activeRunId, trackRun } from '$lib/server/checkpoint/runtime';
+import { SUITE_ENVIRONMENTS, type SuiteEnvironment, type TestCase, type TestRun } from '$lib/types';
 
 function actor(cookies: { get(name: string): string | undefined }): string {
 	const id = cookies.get('issuedesk_user');
@@ -11,21 +12,38 @@ function actor(cookies: { get(name: string): string | undefined }): string {
 }
 
 /**
- * Launch a run (design §8): create the TestRun, dispatch each participating
- * automated runner sequentially and ingest its report, and leave manual cases
- * pending for a person. Returns the new run id for the client to navigate to.
+ * Launch a run (design §8). The run is created, its skipped and manual results
+ * are recorded, and the response returns immediately — automated runners then
+ * execute in the background, persisting after each invocation. Suites take
+ * minutes to hours; holding the HTTP request open for that would tie the run
+ * to one browser tab and to the proxy's patience.
+ *
+ * Only one automated run executes at a time: suites are mutually destructive
+ * (one resets the database another's fixtures depend on), so a second launch
+ * is refused rather than silently interleaved. Manual-only runs spawn nothing
+ * and are never blocked.
  */
 export const POST: RequestHandler = async ({ request, cookies }) => {
 	await cp.ensureLoaded();
 	const body = await request.json().catch(() => ({}));
 	const suiteId = String(body.suiteId ?? '');
-	const environment = (String(body.environment ?? 'local')) as SuiteEnvironment;
+	const environment = String(body.environment ?? 'local');
 	const kinds: string[] = Array.isArray(body.kinds) ? body.kinds.map(String) : [];
 
+	if (!(SUITE_ENVIRONMENTS as readonly string[]).includes(environment)) {
+		error(400, `Unknown environment "${environment}"`);
+	}
 	const suite = cp.getSuite(suiteId);
 	if (!suite) error(400, 'Unknown suite');
 
 	const cases = suite.caseIds.map((id) => cp.getCase(id)).filter(Boolean) as TestCase[];
+	const plan = planLaunch(cases, kinds, cp.runners());
+
+	if (plan.groups.length) {
+		const busy = activeRunId();
+		if (busy) error(409, `${busy} is still running — wait for it to finish before launching another run`);
+	}
+
 	const runId = await cp.allocateRunId(suite.appId);
 	const run: TestRun = {
 		id: runId,
@@ -35,49 +53,24 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		appName: suite.appName,
 		suiteId: suite.id,
 		suiteName: suite.name,
-		environment,
+		environment: environment as SuiteEnvironment,
 		startedBy: actor(cookies),
 		startedAt: new Date().toISOString(),
 		invocations: [],
-		results: []
+		// Everything known before execution: unrunnable cases and the manual
+		// checklist, so the run page is complete the moment it opens.
+		results: [...plan.skipped, ...plan.manualCases.map((c) => pendingManualResult(c.id))]
 	};
+	if (!plan.groups.length && !plan.manualCases.length) run.completedAt = new Date().toISOString();
 	await cp.saveRun(run);
 
-	// One automated runner per participating non-manual kind present in the suite.
-	const suiteKinds = [...new Set(cases.map((c) => c.kind))];
-	for (const kind of suiteKinds) {
-		if (kind === 'manual' || !kinds.includes(kind)) continue;
-		const kindCases = cases.filter((c) => c.kind === kind);
-		const runner = cp.runners().find((r) => r.kind === kind && r.enabled);
-		if (!runner) {
-			run.results.push(
-				...kindCases.map(
-					(c): CaseResult => ({
-						testCaseId: c.id,
-						runnerId: null,
-						status: 'skipped',
-						durationMs: null,
-						message: `no ${kind} runner configured`,
-						stack: null,
-						artifacts: []
-					})
-				)
-			);
-			continue;
-		}
-		const { invocation, results } = await dispatchRunner(runId, runner, kindCases, environment);
-		run.invocations.push(invocation);
-		run.results.push(...results);
-		await cp.saveRun({ ...run });
+	if (plan.groups.length) {
+		trackRun(runId, executeRun(run, plan, environment));
 	}
 
-	// Manual cases become a pending checklist.
-	if (kinds.includes('manual')) {
-		for (const c of cases.filter((c) => c.kind === 'manual')) run.results.push(pendingManualResult(c.id));
-	}
-
-	if (!run.results.some((r) => r.notes === 'pending')) run.completedAt = new Date().toISOString();
-	await cp.saveRun(run);
-
-	return json({ runId });
+	return json({
+		runId,
+		running: plan.groups.length > 0,
+		runners: plan.groups.map((g) => ({ id: g.runner.id, name: g.runner.name, cases: g.cases.length }))
+	});
 };

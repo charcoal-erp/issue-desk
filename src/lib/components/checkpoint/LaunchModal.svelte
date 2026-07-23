@@ -8,6 +8,16 @@
 	import Icon from '../Icon.svelte';
 	import KindBadge from './KindBadge.svelte';
 
+	interface GroupRef {
+		runnerId: string;
+		name: string;
+		kind: TestKind;
+		command: string;
+		workingDir: string;
+		reportFormat: ReportFormat;
+		reportPath: string;
+		count: number;
+	}
 	interface SuiteRef {
 		id: string;
 		appName: string;
@@ -16,19 +26,14 @@
 		caseCount: number;
 		kinds: TestKind[];
 		kindCounts: Record<string, number>;
+		/** One entry per runner this suite will invoke — resolved server-side. */
+		groups: GroupRef[];
+		unrunnable: { kind: TestKind; count: number }[];
+		manualCount: number;
 	}
-	interface RunnerRef {
-		id: string;
-		name: string;
-		kind: TestKind;
-		command: string;
-		workingDir: string;
-		reportFormat: ReportFormat;
-		reportPath: string;
-		enabled: boolean;
-	}
-
-	let { suites, runners }: { suites: SuiteRef[]; runners: RunnerRef[] } = $props();
+	// Runner details reach the modal through each suite's server-resolved
+	// groups, so the modal needs no separate runner catalogue.
+	let { suites }: { suites: SuiteRef[] } = $props();
 
 	let suiteId = $state('');
 	let environment = $state<SuiteEnvironment>('local');
@@ -48,31 +53,33 @@
 		}
 	});
 
-	function runnerFor(kind: TestKind): RunnerRef | undefined {
-		return runners.find((r) => r.kind === kind && r.enabled);
-	}
 	function toggleKind(k: TestKind) {
 		selectedKinds = selectedKinds.includes(k) ? selectedKinds.filter((x) => x !== k) : [...selectedKinds, k];
 	}
 
+	/** The runners that will actually be invoked, filtered by the ticked kinds. */
+	const activeGroups = $derived(
+		(suite?.groups ?? []).filter((g) => selectedKinds.includes(g.kind))
+	);
+
 	const plan = $derived.by(() => {
 		if (!suite) return [];
 		const lines: string[] = [];
-		for (const kind of suite.kinds) {
-			if (!selectedKinds.includes(kind)) continue;
-			const n = suite.kindCounts[kind] ?? 0;
-			if (kind === 'manual') {
-				lines.push(`# ${n} manual case(s) → checklist for the runner`);
-				continue;
+		for (const g of activeGroups) {
+			const cd = g.workingDir && g.workingDir !== '.' ? `cd ${g.workingDir} && ` : '';
+			lines.push(`$ ${cd}${g.command.replace(/\$ENV\b/g, environment)}`);
+			lines.push(`  → parse ${g.reportPath || 'stdout'} (${g.reportFormat}) → ${g.count} case(s)`);
+		}
+		for (const u of suite.unrunnable) {
+			if (selectedKinds.includes(u.kind)) {
+				lines.push(`# ${u.kind}: no runner configured → ${u.count} case(s) skipped`);
 			}
-			const r = runnerFor(kind);
-			if (!r) {
-				lines.push(`# ${kind}: no runner configured → ${n} case(s) skipped`);
-				continue;
-			}
-			const cd = r.workingDir && r.workingDir !== '.' ? `cd ${r.workingDir} && ` : '';
-			lines.push(`$ ${cd}${r.command.replace(/\$ENV\b/g, environment)}`);
-			lines.push(`  → parse ${r.reportPath} (${r.reportFormat}) → ${n} case(s)`);
+		}
+		if (suite.manualCount && selectedKinds.includes('manual')) {
+			lines.push(`# ${suite.manualCount} manual case(s) → checklist for the tester`);
+		}
+		if (activeGroups.length > 1) {
+			lines.push(`# ${activeGroups.length} runners execute in order, one at a time`);
 		}
 		return lines;
 	});
@@ -86,10 +93,22 @@
 				headers: { 'content-type': 'application/json' },
 				body: JSON.stringify({ suiteId, environment, kinds: selectedKinds })
 			});
-			if (!res.ok) throw new Error(await res.text());
-			const { runId } = await res.json();
+			if (!res.ok) {
+				// SvelteKit's error() replies with JSON; fall back to raw text.
+				const body = await res.text();
+				let message = body;
+				try {
+					message = JSON.parse(body).message ?? body;
+				} catch {
+					/* not JSON — use the text */
+				}
+				toast(res.status === 409 ? 'Another run is in flight' : 'Launch failed', message);
+				return;
+			}
+			const { runId, running } = await res.json();
 			closeLaunch();
 			await goto(`/qa/runs/${runId}`);
+			if (running) toast('Run started', 'Runners are executing — results appear as they land');
 		} catch (e) {
 			toast('Launch failed', (e as Error).message);
 		} finally {
@@ -139,19 +158,45 @@
 						<div class="field">
 							<!-- svelte-ignore a11y_label_has_associated_control -->
 							<label>Runners in this launch <span class="hint">· untick to skip a kind of test</span></label>
-							{#each suite.kinds as kind (kind)}
-								{@const r = runnerFor(kind)}
-								<button type="button" class="health-row" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line-2)" onclick={() => toggleKind(kind)}>
-									<span class="box chk-box {selectedKinds.includes(kind) ? 'on' : ''}" style="width:16px;height:16px;border-radius:5px;border:1.5px solid {selectedKinds.includes(kind) ? 'var(--ws)' : '#CBD3DE'};background:{selectedKinds.includes(kind) ? 'var(--ws)' : '#fff'};display:grid;place-items:center;flex:0 0 16px">
-										{#if selectedKinds.includes(kind)}<Icon name="check-sm" class="chk-tick" />{/if}
+							{#each suite.groups as g (g.runnerId)}
+								{@const on = selectedKinds.includes(g.kind)}
+								<button type="button" class="health-row" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line-2)" onclick={() => toggleKind(g.kind)}>
+									<span class="box chk-box {on ? 'on' : ''}" style="width:16px;height:16px;border-radius:5px;border:1.5px solid {on ? 'var(--ws)' : '#CBD3DE'};background:{on ? 'var(--ws)' : '#fff'};display:grid;place-items:center;flex:0 0 16px">
+										{#if on}<Icon name="check-sm" class="chk-tick" />{/if}
 									</span>
 									<div class="hr-b">
-										<div class="hr-n"><KindBadge {kind} small /> {kind === 'manual' ? 'Manual execution' : (r?.name ?? 'No runner configured')}</div>
-										<div class="hr-m">{kind === 'manual' ? 'a person marks each case in the run' : (r?.command ?? '—')}</div>
+										<div class="hr-n"><KindBadge kind={g.kind} small /> {g.name}</div>
+										<div class="hr-m">{g.command}</div>
 									</div>
-									<div class="hr-s"><b>{suite.kindCounts[kind] ?? 0}</b>case{(suite.kindCounts[kind] ?? 0) === 1 ? '' : 's'}</div>
+									<div class="hr-s"><b>{g.count}</b>case{g.count === 1 ? '' : 's'}</div>
 								</button>
 							{/each}
+							{#each suite.unrunnable as u (u.kind)}
+								{@const on = selectedKinds.includes(u.kind)}
+								<button type="button" class="health-row" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line-2)" onclick={() => toggleKind(u.kind)}>
+									<span class="box chk-box" style="width:16px;height:16px;border-radius:5px;border:1.5px solid {on ? 'var(--ws)' : '#CBD3DE'};background:{on ? 'var(--ws)' : '#fff'};display:grid;place-items:center;flex:0 0 16px">
+										{#if on}<Icon name="check-sm" class="chk-tick" />{/if}
+									</span>
+									<div class="hr-b">
+										<div class="hr-n"><KindBadge kind={u.kind} small /> No runner configured</div>
+										<div class="hr-m">these cases will be recorded as skipped</div>
+									</div>
+									<div class="hr-s"><b>{u.count}</b>case{u.count === 1 ? '' : 's'}</div>
+								</button>
+							{/each}
+							{#if suite.manualCount}
+								{@const on = selectedKinds.includes('manual')}
+								<button type="button" class="health-row" style="width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line-2)" onclick={() => toggleKind('manual')}>
+									<span class="box chk-box {on ? 'on' : ''}" style="width:16px;height:16px;border-radius:5px;border:1.5px solid {on ? 'var(--ws)' : '#CBD3DE'};background:{on ? 'var(--ws)' : '#fff'};display:grid;place-items:center;flex:0 0 16px">
+										{#if on}<Icon name="check-sm" class="chk-tick" />{/if}
+									</span>
+									<div class="hr-b">
+										<div class="hr-n"><KindBadge kind="manual" small /> Manual execution</div>
+										<div class="hr-m">a person marks each case in the run</div>
+									</div>
+									<div class="hr-s"><b>{suite.manualCount}</b>case{suite.manualCount === 1 ? '' : 's'}</div>
+								</button>
+							{/if}
 						</div>
 
 						<div class="field">

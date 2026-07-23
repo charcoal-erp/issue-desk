@@ -13,6 +13,35 @@
 	const run = $derived(data.run);
 	const TOGGLE: ResultStatus[] = ['pass', 'fail', 'blocked', 'skipped'];
 
+	// Automated dispatch continues on the server after the launch returns, so a
+	// running run refreshes itself; results appear per invocation as they land.
+	$effect(() => {
+		if (run.state !== 'running') return;
+		const timer = setInterval(() => invalidateAll(), 3000);
+		return () => clearInterval(timer);
+	});
+
+	let completing = $state(false);
+	async function closeRun() {
+		completing = true;
+		try {
+			const res = await fetch(`/qa/runs/${run.id}?/completeRun`, {
+				method: 'POST',
+				headers: { 'x-sveltekit-action': 'true' },
+				body: new FormData()
+			});
+			const r = deserialize(await res.text());
+			if (r.type === 'success') {
+				await invalidateAll();
+				toast('Run closed', 'Recorded as complete with the results it has');
+			} else {
+				toast('Could not close the run', 'Try again');
+			}
+		} finally {
+			completing = false;
+		}
+	}
+
 	async function post(action: string, caseId: string, extra: Record<string, string> = {}) {
 		const body = new FormData();
 		body.set('caseId', caseId);
@@ -67,7 +96,16 @@
 				<span class="run-id">{run.id}</span>
 				<span class="run-suite">{run.suiteName}</span>
 				<span class="env-chip">{ENV_LABEL[run.environment]}</span>
-				<span class="run-meta">{run.by} · {run.when}{run.completed ? '' : ' · in progress'}</span>
+				<span class="run-meta">
+					{run.by} · {run.when}{run.state === 'running'
+						? ' · running'
+						: run.state === 'awaiting-manual'
+							? ' · awaiting manual results'
+							: run.state === 'interrupted'
+								? ' · interrupted'
+								: ''}
+				</span>
+				{#if run.state === 'running'}<span class="live-dot" title="Runners are executing"></span>{/if}
 			</div>
 			<ProgressBar counts={run.counts} />
 			<div class="run-counts">
@@ -78,6 +116,22 @@
 				<span class="passrate" style="color:{rateColor(run.passRate)}">{run.passRate === null ? '—' : `${run.passRate}% pass`}</span>
 			</div>
 		</div>
+
+		{#if run.state === 'interrupted'}
+			<div class="launch-panel" style="margin-bottom:14px">
+				<div>
+					<div class="lp-t">This run was interrupted</div>
+					<div class="lp-d">
+						The server restarted while runners were executing, so no dispatch is in flight. The
+						results below are what completed; close the run to record it as history, or launch it again.
+					</div>
+				</div>
+				<div class="lp-sp"></div>
+				<button class="btn btn-primary btn-sm" onclick={closeRun} disabled={completing}>
+					<Icon name="check" /> Close run
+				</button>
+			</div>
+		{/if}
 
 		{#if data.failingCount}
 			<div class="launch-panel" style="margin-bottom:14px">
@@ -149,3 +203,29 @@
 		{/if}
 	</div>
 </div>
+
+<style>
+	.live-dot {
+		width: 8px;
+		height: 8px;
+		border-radius: 50%;
+		background: var(--ws, #0E9F9F);
+		animation: cp-pulse 1.4s ease-in-out infinite;
+		flex: 0 0 8px;
+	}
+	@keyframes cp-pulse {
+		0%,
+		100% {
+			opacity: 0.35;
+		}
+		50% {
+			opacity: 1;
+		}
+	}
+	@media (prefers-reduced-motion: reduce) {
+		.live-dot {
+			animation: none;
+			opacity: 0.8;
+		}
+	}
+</style>

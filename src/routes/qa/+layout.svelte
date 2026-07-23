@@ -75,5 +75,5 @@
 	</div>
 </div>
 
-<LaunchModal suites={data.launchSuites} runners={data.launchRunners} />
+<LaunchModal suites={data.launchSuites} />
 <FailuresModal />

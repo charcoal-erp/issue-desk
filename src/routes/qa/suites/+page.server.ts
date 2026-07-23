@@ -59,9 +59,12 @@ export const load: PageServerLoad = async ({ url }) => {
 				appId: c.appId,
 				appCode: c.appCode,
 				title: c.title,
-				kind: c.kind
+				kind: c.kind,
+				runnerId: c.runnerId
 			})),
-			runners: cp.runners().map((r) => ({ id: r.id, name: r.name, kind: r.kind, command: r.command })),
+			runners: cp
+				.runners()
+				.map((r) => ({ id: r.id, name: r.name, kind: r.kind, command: r.command, enabled: r.enabled })),
 			nextId: suite ? null : cp.nextSuiteId(store.applications()[0]?.id ?? 'charcoal')
 		};
 	}
