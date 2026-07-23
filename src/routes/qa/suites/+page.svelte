@@ -47,15 +47,14 @@
 				<div class="suite-grid">
 					{#each data.cards as s (s.id)}
 						<div class="suite-card">
-							<a class="suite-hd" href="/qa/suites?edit={s.id}">
+							<a class="suite-hd" href="/qa/suites?edit={s.id}" title={s.description || s.name}>
 								<div class="sh-top">
 									<span class="suite-id">{s.id}</span>
-									<span class="tag">{s.appName}</span>
+									<span class="suite-app">{s.appName}</span>
 									<span class="env-chip" style="margin-left:auto">{ENV_LABEL[s.defaultEnv]}</span>
 								</div>
 								<div class="suite-name">{s.name}</div>
-								{#if s.description}<div class="suite-desc">{s.description}</div>{/if}
-								{#if s.tags.length}<div style="margin-top:8px"><SuiteTags tags={s.tags} compact /></div>{/if}
+								{#if s.tags.length}<div class="suite-tagrow"><SuiteTags tags={s.tags} compact max={3} /></div>{/if}
 							</a>
 							<div class="suite-bd">
 								<div class="suite-kinds">

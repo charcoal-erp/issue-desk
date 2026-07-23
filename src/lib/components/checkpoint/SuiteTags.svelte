@@ -8,22 +8,48 @@
 	 * warning, `cleanup:` / `binds:` / `requires:` as something to be aware of,
 	 * everything else as neutral metadata — so the vocabulary stays the content
 	 * repo's business and this component needs no list of known tags.
+	 *
+	 * `max` keeps a card readable: the most severe tags are shown and the rest
+	 * collapse into a +N chip that names them on hover. Severity ordering is
+	 * derived from the prefix, so this stays generic too.
 	 */
-	let { tags, compact = false }: { tags: string[]; compact?: boolean } = $props();
+	let {
+		tags,
+		compact = false,
+		max = 0
+	}: { tags: string[]; compact?: boolean; max?: number } = $props();
 
-	function severity(tag: string): 'danger' | 'warn' | 'ok' | 'flat' {
+	const RANK = { danger: 0, warn: 1, ok: 2, info: 3, flat: 4 } as const;
+
+	function severity(tag: string): keyof typeof RANK {
 		if (tag.startsWith('destructive:')) return 'danger';
 		if (tag.startsWith('cleanup:') || tag.startsWith('binds:') || tag.startsWith('requires:')) return 'warn';
 		if (tag === 'db:none') return 'ok';
+		// Any other db:* is the suite's data posture — it outranks provenance
+		// tags, which are the first thing to collapse into +N on a card.
+		if (tag.startsWith('db:')) return 'info';
 		return 'flat';
 	}
+
+	// Stable sort: most severe first, original order preserved within a rank.
+	const ordered = $derived(
+		tags
+			.map((tag, i) => ({ tag, i, rank: RANK[severity(tag)] }))
+			.sort((a, b) => a.rank - b.rank || a.i - b.i)
+			.map((x) => x.tag)
+	);
+	const shown = $derived(max > 0 ? ordered.slice(0, max) : ordered);
+	const hidden = $derived(max > 0 ? ordered.slice(max) : []);
 </script>
 
 {#if tags.length}
 	<div class="cp-tags" class:compact>
-		{#each tags as tag (tag)}
+		{#each shown as tag (tag)}
 			<span class="cp-tag {severity(tag)}">{tag}</span>
 		{/each}
+		{#if hidden.length}
+			<span class="cp-tag flat more" title={hidden.join('\n')}>+{hidden.length}</span>
+		{/if}
 	</div>
 {/if}
 
@@ -41,6 +67,7 @@
 		border-radius: 5px;
 		border: 1px solid transparent;
 		white-space: nowrap;
+		text-decoration: none;
 	}
 	.compact .cp-tag {
 		font-size: 10px;
@@ -49,6 +76,11 @@
 	.cp-tag.flat {
 		background: var(--accent-soft-2, #f1f3f7);
 		color: var(--muted, #5b6472);
+	}
+	.cp-tag.info {
+		background: #eef2fb;
+		color: #3f5488;
+		border-color: #d5deef;
 	}
 	.cp-tag.ok {
 		background: #e8f6ee;
@@ -65,5 +97,8 @@
 		color: #a52019;
 		border-color: #f4c7c3;
 		font-weight: 600;
+	}
+	.cp-tag.more {
+		cursor: help;
 	}
 </style>

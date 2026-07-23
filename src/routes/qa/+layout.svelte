@@ -73,7 +73,12 @@
 			{@render children()}
 		</div>
 	</div>
-</div>
 
-<LaunchModal suites={data.launchSuites} />
-<FailuresModal />
+	<!-- Inside .cp: every Checkpoint rule is scoped `.cp …`, so a modal rendered
+	     as a sibling gets none of them — the runner rows in the launch dialog
+	     lost their layout entirely and the kind-badge SVG grew to fill it. Both
+	     modals are fixed-position, and .cp sets no transform/filter, so they
+	     still cover the viewport from here. -->
+	<LaunchModal suites={data.launchSuites} />
+	<FailuresModal />
+</div>

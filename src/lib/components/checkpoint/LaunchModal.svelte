@@ -158,6 +158,20 @@
 					</div>
 
 					{#if suite}
+						{#if suite.tags.length}
+							<div class="field">
+								<!-- svelte-ignore a11y_label_has_associated_control -->
+								<label>
+									Before you start
+									{#if suite.tags.some((t) => t.startsWith('destructive:'))}
+										<span class="hint" style="color:#a52019">· this suite destroys data</span>
+									{/if}
+								</label>
+								<SuiteTags tags={suite.tags} />
+								{#if suite.description}<div class="lm-desc">{suite.description}</div>{/if}
+							</div>
+						{/if}
+
 						<div class="field">
 							<!-- svelte-ignore a11y_label_has_associated_control -->
 							<label>Runners in this launch <span class="hint">· untick to skip a kind of test</span></label>
@@ -201,20 +215,6 @@
 								</button>
 							{/if}
 						</div>
-
-						{#if suite.tags.length}
-							<div class="field">
-								<!-- svelte-ignore a11y_label_has_associated_control -->
-								<label>
-									Before you start
-									{#if suite.tags.some((t) => t.startsWith('destructive:'))}
-										<span class="hint" style="color:#a52019">· this suite destroys data</span>
-									{/if}
-								</label>
-								<SuiteTags tags={suite.tags} />
-								{#if suite.description}<div class="lm-desc">{suite.description}</div>{/if}
-							</div>
-						{/if}
 
 						<div class="field">
 							<!-- svelte-ignore a11y_label_has_associated_control -->

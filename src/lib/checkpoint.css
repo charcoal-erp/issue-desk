@@ -1002,6 +1002,7 @@
 	border-top: 1px solid var(--line-2);
 	background: var(--surface-2);
 	flex-wrap: wrap;
+	margin-top: auto;   /* pin the actions to the bottom of an equal-height card */
 }
 
 /* ---- suites ---- */
@@ -1017,6 +1018,10 @@
 	box-shadow: var(--shadow-sm);
 	overflow: hidden;
 	transition: 0.14s;
+	/* Column layout + auto-margin on the footer keeps every card in a row the
+	   same height with its actions aligned, however long the name runs. */
+	display: flex;
+	flex-direction: column;
 }
 .cp .suite-card:hover {
 	box-shadow: var(--shadow-md);
@@ -1025,6 +1030,14 @@
 	padding: 15px 17px 13px;
 	border-bottom: 1px solid var(--line-2);
 	cursor: pointer;
+	/* The whole header is a link; without this the browser underlines the
+	   title and every tag chip inside it. */
+	text-decoration: none;
+	color: inherit;
+	display: block;
+}
+.cp .suite-hd:hover .suite-name {
+	color: var(--ws);
 }
 .cp .suite-hd .sh-top {
 	display: flex;
@@ -1038,17 +1051,33 @@
 	font-weight: 600;
 	color: var(--faint);
 }
+.cp .suite-app {
+	font-size: 11px;
+	color: var(--faint);
+}
 .cp .suite-name {
 	font-family: var(--font-display);
-	font-size: 16px;
+	font-size: 15.5px;
 	font-weight: 600;
+	line-height: 1.35;
+	/* Two lines at most, so a long name cannot push a card out of line. */
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	min-height: 2.7em;
 }
-.cp .suite-desc {
-	font-size: 12.5px;
-	color: var(--muted);
+.cp .suite-tagrow {
+	margin-top: 9px;
+	/* One row of chips, clipped — the +N chip names the rest on hover. */
+	display: flex;
+	overflow: hidden;
+	max-height: 19px;
 }
 .cp .suite-bd {
 	padding: 13px 17px;
+	flex: 1 1 auto;
 }
 .cp .suite-kinds {
 	display: flex;
