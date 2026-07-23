@@ -1070,10 +1070,14 @@
 }
 .cp .suite-tagrow {
 	margin-top: 9px;
-	/* One row of chips, clipped — the +N chip names the rest on hover. */
+	/* Exactly one row: the +N chip must never wrap out of sight, since it is
+	   what tells you there are more tags to hover for. */
 	display: flex;
 	overflow: hidden;
 	max-height: 19px;
+}
+.cp .suite-tagrow :global(.cp-tags) {
+	flex-wrap: nowrap;
 }
 .cp .suite-bd {
 	padding: 13px 17px;

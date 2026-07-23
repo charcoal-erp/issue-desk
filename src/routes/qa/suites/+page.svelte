@@ -54,7 +54,7 @@
 									<span class="env-chip" style="margin-left:auto">{ENV_LABEL[s.defaultEnv]}</span>
 								</div>
 								<div class="suite-name">{s.name}</div>
-								{#if s.tags.length}<div class="suite-tagrow"><SuiteTags tags={s.tags} compact max={3} /></div>{/if}
+								{#if s.tags.length}<div class="suite-tagrow"><SuiteTags tags={s.tags} compact max={2} /></div>{/if}
 							</a>
 							<div class="suite-bd">
 								<div class="suite-kinds">
