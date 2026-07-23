@@ -317,6 +317,10 @@ export interface TestRun {
 	completedAt?: string;
 	invocations: RunnerInvocation[]; // one per participating runner
 	results: CaseResult[];
+	/** Archived runs are kept when a cleanup prunes by age — the record of a
+	 *  release, a regression, or anything else worth keeping indefinitely. */
+	archived?: boolean;
+	archivedAt?: string;
 	// derived at read time: counts { pass, fail, blocked, skipped }, passRate
 }
 

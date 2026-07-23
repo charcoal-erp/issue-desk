@@ -75,6 +75,9 @@
 							</div>
 							<div class="suite-foot">
 								<button class="btn btn-primary btn-sm" onclick={() => openLaunch(s.id)}><Icon name="play" /> Launch</button>
+								<a class="btn btn-ghost btn-sm" href="/qa/runs?suite={s.id}" title="This suite's run history — archive or clean up its runs">
+									<Icon name="play" /> Runs{#if s.runCount}<span class="foot-n">{s.runCount}{#if s.archivedRuns}·{s.archivedRuns}★{/if}</span>{/if}
+								</a>
 								<a class="btn btn-ghost btn-sm" href="/qa/suites?edit={s.id}"><Icon name="edit" /> Edit</a>
 								<form method="POST" action="?/duplicateSuite" use:enhance={() => async ({ result }) => { if (result.type === 'success') { toast('Suite duplicated'); await invalidateAll(); } }}>
 									<input type="hidden" name="id" value={s.id} />
@@ -105,5 +108,11 @@
 <style>
 	:global(.btn .flip) {
 		transform: rotate(180deg);
+	}
+	.foot-n {
+		margin-left: 5px;
+		font-family: var(--font-mono);
+		font-size: 10.5px;
+		color: var(--faint);
 	}
 </style>

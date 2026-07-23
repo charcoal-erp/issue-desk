@@ -21,6 +21,7 @@ export const load: PageServerLoad = async ({ url }) => {
 		const kinds = [...new Set(cases.map((c) => c!.kind))] as TestKind[];
 		const manual = cases.filter((c) => c!.kind === 'manual').length;
 		const suiteRun = runs.find((r) => r.suiteId === s.id); // runs() is newest-first
+		const suiteRuns = runs.filter((r) => r.suiteId === s.id);
 		return {
 			id: s.id,
 			appCode: s.appCode,
@@ -33,7 +34,9 @@ export const load: PageServerLoad = async ({ url }) => {
 			total: cases.length,
 			manual,
 			automated: cases.length - manual,
-			lastPassRate: suiteRun ? runPassRate(suiteRun) : null
+			lastPassRate: suiteRun ? runPassRate(suiteRun) : null,
+			runCount: suiteRuns.length,
+			archivedRuns: suiteRuns.filter((r) => r.archived).length
 		};
 	});
 

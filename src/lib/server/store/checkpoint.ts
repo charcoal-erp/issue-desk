@@ -1,3 +1,4 @@
+import { rm } from 'node:fs/promises';
 import { v7 as uuidv7 } from 'uuid';
 import type {
 	Application,
@@ -565,6 +566,58 @@ export async function saveRun(run: TestRun): Promise<TestRun> {
 		rebuildResultsIndex();
 		return run;
 	});
+}
+
+/**
+ * Archive or un-archive a run. Archived runs survive `pruneRuns` — they are the
+ * ones worth keeping: a release sign-off, the run that caught a regression.
+ */
+export async function setRunArchived(runId: string, archived: boolean): Promise<TestRun> {
+	await ensureLoaded();
+	const run = runsById.get(runId);
+	if (!run) throw new Error(`Run ${runId} not found`);
+	const next: TestRun = { ...run, archived };
+	if (archived) next.archivedAt = new Date().toISOString();
+	else delete next.archivedAt;
+	return saveRun(next);
+}
+
+/** Delete one run and its stored file. Run history is append-only until asked. */
+export async function deleteRun(runId: string): Promise<void> {
+	await ensureLoaded();
+	const run = runsById.get(runId);
+	if (!run) return;
+	await withLock(`cp:run:${runId}`, async () => {
+		runsById.delete(runId);
+		await rm(runFile(run.appId, runId), { force: true });
+		rebuildResultsIndex();
+	});
+}
+
+export interface PruneFilter {
+	/** Delete runs started strictly before this ISO instant. */
+	before: string;
+	/** Restrict to one suite, so a noisy suite can be cleaned on its own. */
+	suiteId?: string;
+	appId?: string;
+}
+
+/** Which runs a prune would remove — archived and in-flight runs are never included. */
+export function prunableRuns(filter: PruneFilter): TestRun[] {
+	return runs(filter.appId).filter(
+		(r) =>
+			!r.archived &&
+			r.completedAt && // never delete a run that is still executing
+			r.startedAt < filter.before &&
+			(!filter.suiteId || r.suiteId === filter.suiteId)
+	);
+}
+
+/** Delete every run matching the filter; returns the ids removed. */
+export async function pruneRuns(filter: PruneFilter): Promise<string[]> {
+	const doomed = prunableRuns(filter);
+	for (const run of doomed) await deleteRun(run.id);
+	return doomed.map((r) => r.id);
 }
 
 /** Record or replace one case's result in a run (manual marking / bug link). */

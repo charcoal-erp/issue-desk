@@ -261,7 +261,9 @@ export const testRunSchema = z.object({
 	startedAt: z.string().min(1),
 	completedAt: z.string().optional(),
 	invocations: z.array(runnerInvocationSchema).default([]),
-	results: z.array(caseResultSchema).default([])
+	results: z.array(caseResultSchema).default([]),
+	archived: z.boolean().optional(),
+	archivedAt: z.string().optional()
 });
 
 /** Per-app Checkpoint counters — the next id to allocate for each entity. */
