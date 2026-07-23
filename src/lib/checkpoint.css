@@ -1476,6 +1476,12 @@
 	padding: 2px 7px;
 	color: var(--muted);
 }
+.cp .tick-ok,
+.cp .tick-fail {
+	width: 15px;
+	height: 15px;
+	flex: 0 0 15px;
+}
 .cp .tick-ok {
 	color: var(--pass);
 }
