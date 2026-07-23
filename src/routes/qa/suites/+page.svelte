@@ -46,7 +46,7 @@
 			{#if data.cards.length}
 				<div class="suite-grid">
 					{#each data.cards as s (s.id)}
-						<div class="suite-card">
+						<div class="suite-card tone-card" data-tone={s.tone}>
 							<a class="suite-hd" href="/qa/suites?edit={s.id}" title={s.description || s.name}>
 								<div class="sh-top">
 									<span class="suite-id">{s.id}</span>

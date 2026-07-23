@@ -3,7 +3,9 @@
 	import { invalidateAll } from '$app/navigation';
 	import type { TestRunner } from '$lib/types';
 	import { toast } from '$lib/stores/toasts.svelte';
+	import { runnerTone } from '$lib/checkpoint/tone';
 	import Icon from '$lib/components/Icon.svelte';
+	import CopyButton from '$lib/components/CopyButton.svelte';
 	import KindBadge from '$lib/components/checkpoint/KindBadge.svelte';
 	import RunnerFormModal from '$lib/components/checkpoint/RunnerFormModal.svelte';
 
@@ -33,14 +35,21 @@
 		{#if data.runners.length}
 			<div class="runner-grid">
 				{#each data.runners as r (r.id)}
-					<div class="runner-card" style={r.enabled ? '' : 'opacity:.6'}>
+					<div class="runner-card tone-card" data-tone={runnerTone(r.kind)} class:off={!r.enabled}>
 						<div class="runner-hd">
 							<KindBadge kind={r.kind} small />
-							<span class="rn-n">{r.name}</span>
-							<span class="rn-id">{r.id} · {r.language}</span>
-							<span class="hdot h-{r.health}" style="margin-left:auto" title={r.health}></span>
+							<div class="rn-title">
+								<span class="rn-n">{r.name}</span>
+								<span class="rn-id">{r.id} · {r.language}</span>
+							</div>
+							<span style="margin-left:auto"></span>
+							{#if !r.enabled}<span class="rn-off">disabled</span>{/if}
+							<span class="hdot h-{r.health}" title="Health: {r.health}"></span>
 						</div>
-						<div class="cmd-box"><span class="pfx">$ </span>{r.command || '(performed by a person)'}</div>
+						<div class="cmd-box">
+							<code class="cmd-text" title={r.command || undefined}><span class="pfx">$ </span>{r.command || '(performed by a person)'}</code>
+							{#if r.command}<CopyButton text={r.command} variant="dark" title="Copy the command" />{/if}
+						</div>
 						<div class="runner-meta">
 							<div><div class="rm-k">Working dir</div><div class="rm-v">{r.workingDir || '—'}</div></div>
 							<div><div class="rm-k">Report format</div><div class="rm-v">{r.reportFormat}</div></div>
@@ -48,9 +57,9 @@
 							<div><div class="rm-k">Case matched by</div><div class="rm-v">{r.matchLabel}</div></div>
 						</div>
 						<div class="runner-foot">
-							<span style="font-size:11.5px;color:var(--muted)">avg <b style="color:var(--ink)">{r.avgLabel}</b></span>
-							<span style="font-size:11.5px;color:var(--muted)">flake <b style="color:{r.flakeRatePct >= 5 ? 'var(--flaky)' : 'var(--ink)'}">{r.flakeRatePct}%</b></span>
-							<span style="font-size:11.5px;color:var(--muted)">last {r.lastLabel}</span>
+							<span class="rf-stat">avg <b>{r.avgLabel}</b></span>
+							<span class="rf-stat" class:flaky={r.flakeRatePct >= 5}>flake <b>{r.flakeRatePct}%</b></span>
+							<span class="rf-stat">last {r.lastLabel}</span>
 							<span style="flex:1"></span>
 							{#if r.kind !== 'manual'}
 								<button class="btn btn-ghost btn-xs" onclick={() => toast('Run now', 'Ad-hoc single-runner runs land with CI wiring')}><Icon name="play" /> Run now</button>

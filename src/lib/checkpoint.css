@@ -46,6 +46,10 @@
 	--k-shell-soft: #eef1f5;
 	--k-manual: #0d9488;
 	--k-manual-soft: #e0f5f3;
+	/* Not a test kind — the tone worn by suites that rebuild data rather than
+	   test it, and the only cards that can drop a database. */
+	--k-seed: #e2542c;
+	--k-seed-soft: #fdeade;
 }
 
 /* ---- shell ---- */
@@ -954,51 +958,122 @@
 	border-radius: var(--radius);
 	box-shadow: var(--shadow-sm);
 	overflow: hidden;
+	transition: 0.14s;
+	/* Column layout is what makes the footer's `margin-top:auto` work, so every
+	   card in a row ends at the same height with its actions aligned. */
+	display: flex;
+	flex-direction: column;
+}
+.cp .runner-card:hover {
+	box-shadow: var(--shadow-md);
+}
+/* A disabled runner is dimmed, but not so far that its name stops being
+   readable — you still need to find it in order to re-enable it. */
+.cp .runner-card.off {
+	opacity: 0.72;
 }
 .cp .runner-hd {
 	display: flex;
-	align-items: center;
+	align-items: flex-start;
 	gap: 10px;
-	padding: 14px 16px 12px;
+	padding: 14px 16px 11px;
+}
+.cp .runner-hd .rn-title {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
 }
 .cp .runner-hd .rn-n {
 	font-family: var(--font-display);
 	font-size: 15px;
 	font-weight: 600;
+	line-height: 1.3;
 }
 .cp .runner-hd .rn-id {
 	font-family: var(--font-mono);
 	font-size: 10.5px;
 	color: var(--faint);
 }
+.cp .runner-hd .rn-off {
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.05em;
+	padding: 3px 7px;
+	border-radius: 5px;
+	background: var(--skip-soft);
+	color: var(--muted);
+}
+.cp .runner-hd .hdot {
+	margin-top: 5px;
+}
 .cp .cmd-box {
 	background: var(--term-bg);
 	border-radius: 9px;
-	padding: 10px 12px;
+	padding: 9px 9px 9px 12px;
 	font-family: var(--font-mono);
 	font-size: 11.5px;
 	color: var(--term-text);
 	margin: 0 16px 12px;
-	overflow-x: auto;
-	white-space: nowrap;
+	/* The command scrolls; the copy button is pinned so it cannot scroll out
+	   of reach on a long command. */
+	display: flex;
+	align-items: center;
+	gap: 9px;
+}
+.cp .cmd-box .cmd-text {
+	flex: 1;
+	min-width: 0;
+	font: inherit;
+	line-height: 1.5;
+	/* Two wrapped lines, not one scrollable one. Every runner in a tier starts
+	   with the same wrapper path, so a single clipped line showed the identical
+	   prefix on all twenty-seven cards and told you nothing; the part that
+	   differs is at the end. The whole command is on the tooltip and one click
+	   from the clipboard. */
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
+	overflow: hidden;
+	overflow-wrap: anywhere;
+	min-height: 3em;
 }
 .cp .cmd-box .pfx {
 	color: var(--term-muted);
+	user-select: none;
 }
 .cp .runner-meta {
 	display: grid;
 	grid-template-columns: 1fr 1fr;
-	gap: 8px 14px;
-	padding: 0 16px 12px;
+	gap: 9px 14px;
+	padding: 0 16px 13px;
 	font-size: 12px;
 }
 .cp .runner-meta .rm-k {
+	font-size: 10px;
+	text-transform: uppercase;
+	letter-spacing: 0.04em;
 	color: var(--muted);
+	margin-bottom: 1px;
 }
 .cp .runner-meta .rm-v {
 	font-family: var(--font-mono);
 	font-size: 11.5px;
 	color: var(--ink-2);
+	/* Working dirs and report paths are long and have no spaces to break on. */
+	overflow-wrap: anywhere;
+}
+.cp .runner-foot .rf-stat {
+	font-size: 11.5px;
+	color: var(--muted);
+}
+.cp .runner-foot .rf-stat b {
+	color: var(--ink);
+	font-weight: 600;
+}
+.cp .runner-foot .rf-stat.flaky b {
+	color: var(--flaky);
 }
 .cp .runner-foot {
 	display: flex;
@@ -1123,6 +1198,83 @@
 	border-top: 1px solid var(--line-2);
 	background: var(--surface-2);
 	flex-wrap: wrap;
+	margin-top: auto;
+}
+
+/* ---- card tones -----------------------------------------------------------
+ * A grid of sixty-seven runners or thirty-four suites is a wall of identical
+ * white rectangles, and the one thing you scan for is what kind of thing each
+ * card is. So each card carries a tone: a full-strength rail across the top
+ * and a wash of the same hue fading into white by the time it reaches the
+ * content. The hue is the kind palette the KindBadge already uses, so a colour
+ * means the same thing wherever it appears.
+ *
+ * These rules come after the two card blocks deliberately — they override the
+ * flat `background: var(--surface)` those declare, which stays as the fallback
+ * for any card rendered without a tone.
+ * ------------------------------------------------------------------------- */
+.cp .tone-card {
+	position: relative;
+	/* Wash from the top-left corner, gone by 52% — the card is still a white
+	   card with a tint, never a coloured card. */
+	background: linear-gradient(148deg, var(--tone-soft) 0%, var(--surface) 52%);
+	border-color: var(--tone-line, var(--line));
+}
+.cp .tone-card::before {
+	content: '';
+	position: absolute;
+	inset: 0 0 auto 0;
+	height: 3px;
+	background: linear-gradient(90deg, var(--tone) 0%, var(--tone) 22%, transparent 88%);
+	pointer-events: none;
+	z-index: 1;
+}
+/* Default tone, so a card with an unknown or missing kind still looks intentional. */
+.cp .tone-card {
+	--tone: var(--k-shell);
+	--tone-soft: var(--k-shell-soft);
+}
+.cp .tone-card[data-tone='unit'] {
+	--tone: var(--k-unit);
+	--tone-soft: var(--k-unit-soft);
+}
+.cp .tone-card[data-tone='api'] {
+	--tone: var(--k-api);
+	--tone-soft: var(--k-api-soft);
+}
+.cp .tone-card[data-tone='e2e'] {
+	--tone: var(--k-e2e);
+	--tone-soft: var(--k-e2e-soft);
+}
+.cp .tone-card[data-tone='visual'] {
+	--tone: var(--k-visual);
+	--tone-soft: var(--k-visual-soft);
+}
+.cp .tone-card[data-tone='shell'] {
+	--tone: var(--k-shell);
+	/* Not the badge's soft grey — at wash strength it is indistinguishable from
+	   white, which would leave a quarter of the runners looking untinted. */
+	--tone-soft: #e5ebf4;
+}
+.cp .tone-card[data-tone='manual'] {
+	--tone: var(--k-manual);
+	--tone-soft: var(--k-manual-soft);
+}
+/* Seeding suites drop databases. The rail is solid across the whole card
+   rather than fading out, because this is the one tone that is a warning. */
+.cp .tone-card[data-tone='seed'] {
+	--tone: var(--k-seed);
+	--tone-soft: var(--k-seed-soft);
+}
+.cp .tone-card[data-tone='seed']::before {
+	background: linear-gradient(90deg, var(--k-seed) 0%, #f0894a 100%);
+	height: 4px;
+}
+/* The footer's flat fill would cut the wash off square; a hint of the tone
+   keeps the card reading as one object. */
+.cp .tone-card .suite-foot,
+.cp .tone-card .runner-foot {
+	background: linear-gradient(180deg, var(--surface-2) 0%, var(--tone-soft) 320%);
 }
 
 /* ---- suite editor ---- */

@@ -4,6 +4,7 @@ import * as cp from '$lib/server/store/checkpoint';
 import * as store from '$lib/server/store';
 import { createSuiteInputSchema } from '$lib/schemas';
 import { runPassRate } from '$lib/server/checkpoint/metrics';
+import { kindCounts, suiteTone } from '$lib/checkpoint/tone';
 import type { TestKind } from '$lib/types';
 
 function actor(cookies: { get(name: string): string | undefined }): string {
@@ -18,7 +19,8 @@ export const load: PageServerLoad = async ({ url }) => {
 	// Suite cards with derived stats.
 	const cards = cp.suites().map((s) => {
 		const cases = s.caseIds.map((id) => cp.getCase(id)).filter(Boolean);
-		const kinds = [...new Set(cases.map((c) => c!.kind))] as TestKind[];
+		const allKinds = cases.map((c) => c!.kind);
+		const kinds = [...new Set(allKinds)] as TestKind[];
 		const manual = cases.filter((c) => c!.kind === 'manual').length;
 		const suiteRun = runs.find((r) => r.suiteId === s.id); // runs() is newest-first
 		const suiteRuns = runs.filter((r) => r.suiteId === s.id);
@@ -31,6 +33,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			defaultEnv: s.defaultEnv,
 			tags: s.tags,
 			kinds,
+			tone: suiteTone(s.tags, kindCounts(allKinds)),
 			total: cases.length,
 			manual,
 			automated: cases.length - manual,
