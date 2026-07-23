@@ -46,6 +46,14 @@ The app hosts **two separate interfaces from one codebase, one backend and one d
   exported as a ready-to-paste Claude Code prompt or filed as an IssueDesk bug next door. See
   [docs/Checkpoint-Design-Document.md](docs/Checkpoint-Design-Document.md).
 
+  Runs execute **in the background**: launching returns immediately and the run page follows
+  along, so a suite may take hours without a browser tab holding it open. Cases are dispatched
+  **per runner** — a suite spanning a dozen module-level unit runners invokes each of them —
+  and a run that a restart interrupts says so and can be closed or relaunched. Because suites
+  are usually mutually destructive, **one automated run executes at a time**; a second launch is
+  refused with a message naming the run in flight. A timed-out runner is killed by process
+  group, so a wrapper that started a service does not leave it holding a port.
+
 A launcher at `/` chooses a workspace; a switcher in the top-left of each moves between them.
 The two never mix content on a screen. Checkpoint seeds nothing (honest empty states) —
 populate a demo dataset (six runners, a spread of cases, two suites and a launched run) on
@@ -88,12 +96,12 @@ python simulators/checkpoint_simulator.py
 ## Data layout
 
 ```
-data/
+data/                  # DATA_DIR — the issue tracker's data
 ├── config/            users.json · applications.json · settings.json
 ├── issues/<app>/      _sequence.json (per-app counter) · <module>.json (Issue[])
 ├── uploads/<app>/<issueId>/  attachments, served at /api/files/<app>/<issueId>/<file>
 │
-│                      # Checkpoint (additive — IssueDesk files untouched)
+│                      # Checkpoint — under CHECKPOINT_DATA_DIR, same root by default
 ├── runners.json       runner definitions (global, RNR-n)
 ├── tests/<app>/       _sequence.json (testCase/suite/run counters) · <module>.json (TestCase[])
 ├── suites/<app>.json  TestSuite[] per app
