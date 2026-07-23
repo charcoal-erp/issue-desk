@@ -96,6 +96,7 @@ Separately, **a bare `.env` file is not enough** to get a variable into `process
 | `MAX_UPLOAD_MB` | `15` | Per-file size cap |
 | `MAX_ATTACHMENTS` | `10` | Per-issue attachment cap |
 | `WATCH_FILES` | `false` | Re-sync the store when data files are edited by hand |
+| `CHECKPOINT_DATA_DIR` | `DATA_DIR` | Separate root for Checkpoint content (tests/suites/runs/runners.json/reports); unset = combined root as before |
 | `PORT` | `3000` | adapter-node port |
 
 `DATA_DIR` is resolved relative to the process's working directory, so whatever starts the

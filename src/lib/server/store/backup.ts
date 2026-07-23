@@ -1,7 +1,7 @@
 import { cp, mkdir, readdir, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { env } from '$env/dynamic/private';
-import { dataDir } from '../fs/paths';
+import { checkpointDataDir, dataDir } from '../fs/paths';
 
 /**
  * Boot-time data snapshots. This is a file-backed store: the JSON under `data/`
@@ -16,41 +16,56 @@ import { dataDir } from '../fs/paths';
  * and the file watcher, so it never feeds back into the store.
  */
 const KEEP = Number(env.DATA_SNAPSHOT_KEEP) || 10;
-const TARGETS = ['config', 'issues', 'tests', 'suites', 'runs', 'runners.json'];
+const ISSUE_TARGETS = ['config', 'issues'];
+const CHECKPOINT_TARGETS = ['tests', 'suites', 'runs', 'runners.json'];
 
 export async function snapshotOnBoot(): Promise<void> {
 	if (env.DATA_SNAPSHOTS === 'false') return;
-	const base = dataDir();
-
-	// Only snapshot if there is real data to protect.
-	let hasData = false;
-	for (const t of TARGETS) {
-		try {
-			await stat(path.join(base, t));
-			hasData = true;
-			break;
-		} catch {
-			/* missing — ignore */
-		}
-	}
-	if (!hasData) return;
-
-	const backupsRoot = path.join(base, '.backups');
 	const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-	const dest = path.join(backupsRoot, stamp);
-	try {
-		await mkdir(dest, { recursive: true });
-		for (const t of TARGETS) {
+
+	// Each root snapshots into its own .backups, so a split CHECKPOINT_DATA_DIR
+	// (e.g. a git-versioned content repo) keeps restore points beside its data.
+	// With one combined root this collapses to the original single snapshot.
+	const groups =
+		checkpointDataDir() === dataDir()
+			? [{ base: dataDir(), targets: [...ISSUE_TARGETS, ...CHECKPOINT_TARGETS] }]
+			: [
+					{ base: dataDir(), targets: ISSUE_TARGETS },
+					{ base: checkpointDataDir(), targets: CHECKPOINT_TARGETS }
+				];
+
+	for (const { base, targets } of groups) {
+		// Only snapshot if there is real data to protect.
+		let hasData = false;
+		for (const t of targets) {
 			try {
-				await cp(path.join(base, t), path.join(dest, t), { recursive: true });
+				await stat(path.join(base, t));
+				hasData = true;
+				break;
 			} catch {
-				/* target absent — skip */
+				/* missing — ignore */
 			}
 		}
-		await rotate(backupsRoot);
-		console.log(`[issuedesk] Data snapshot written to .backups/${stamp} (keeping ${KEEP})`);
-	} catch (e) {
-		console.error('[issuedesk] Data snapshot failed (non-fatal):', (e as Error).message);
+		if (!hasData) continue;
+
+		const backupsRoot = path.join(base, '.backups');
+		const dest = path.join(backupsRoot, stamp);
+		try {
+			await mkdir(dest, { recursive: true });
+			for (const t of targets) {
+				try {
+					await cp(path.join(base, t), path.join(dest, t), { recursive: true });
+				} catch {
+					/* target absent — skip */
+				}
+			}
+			await rotate(backupsRoot);
+			console.log(
+				`[issuedesk] Data snapshot written to ${path.basename(base)}/.backups/${stamp} (keeping ${KEEP})`
+			);
+		} catch (e) {
+			console.error('[issuedesk] Data snapshot failed (non-fatal):', (e as Error).message);
+		}
 	}
 }
 

@@ -79,6 +79,7 @@ python simulators/checkpoint_simulator.py
 | `MAX_UPLOAD_MB` | `15` | Per-file size cap |
 | `MAX_ATTACHMENTS` | `10` | Per-issue attachment cap |
 | `WATCH_FILES` | `false` | Re-sync the store when data files are edited by hand (covers Checkpoint dirs too) |
+| `CHECKPOINT_DATA_DIR` | `DATA_DIR` | Separate root for Checkpoint content (`tests/`, `suites/`, `runs/`, `runners.json`, `reports/`) — point it at a git-versioned content repo while issues stay under `DATA_DIR` |
 | `CHECKPOINT_WORKDIR` | `process.cwd()` | Base directory runner working-dirs resolve from when a Checkpoint run executes |
 | `DATA_SNAPSHOTS` | `true` | Write a rotating boot snapshot of the JSON data to `data/.backups/` |
 | `DATA_SNAPSHOT_KEEP` | `10` | How many boot snapshots to retain |
@@ -103,6 +104,11 @@ data/
 Issue IDs are per-application (`CHR-14`); Checkpoint mirrors this (`TC-CHR-12`, `SUITE-CHR-4`,
 `RUN-CHR-31`). Storage files are per-module. The whole `data/` directory is self-contained —
 zip it, commit it, or rsync it to move the system.
+
+With `CHECKPOINT_DATA_DIR` set, the Checkpoint half of the tree (`runners.json`, `tests/`,
+`suites/`, `runs/`, `reports/`) lives under that root instead — e.g. a git-versioned test-content
+repo — while `config/`, `issues/` and `uploads/` stay under `DATA_DIR`. Each root then keeps its
+own `.backups/` boot snapshots, and the `WATCH_FILES` watcher covers both.
 
 ## Backups
 
