@@ -4,14 +4,15 @@ import * as cp from '$lib/server/store/checkpoint';
 import { createRunnerInputSchema } from '$lib/schemas';
 import { runnerHealth } from '$lib/server/checkpoint/metrics';
 import { formatDuration, matchStrategyLabel, timeAgo } from '$lib/checkpoint/meta';
+import { matchesRunner, type RunnerFilter } from '$lib/checkpoint/catalogFilters';
 import type { MatchStrategy } from '$lib/types';
 
-export const load: PageServerLoad = async () => {
+export const load: PageServerLoad = async ({ url }) => {
 	await cp.ensureLoaded();
 	const runs = cp.runs();
 	const now = new Date();
 
-	const runners = cp.runners().map((r) => {
+	const allRunners = cp.runners().map((r) => {
 		const h = runnerHealth(r, runs);
 		return {
 			...r,
@@ -24,7 +25,31 @@ export const load: PageServerLoad = async () => {
 		};
 	});
 
-	return { runners };
+	const filter: RunnerFilter = {
+		q: url.searchParams.get('q') ?? '',
+		kind: url.searchParams.get('kind') ?? '',
+		lang: url.searchParams.get('lang') ?? '',
+		enabled: url.searchParams.get('enabled') ?? '',
+		health: url.searchParams.get('health') ?? ''
+	};
+	const runners = allRunners.filter((r) => matchesRunner(r, filter));
+
+	// Counted over everything, so a dropdown never hides a choice merely because
+	// the current filter excludes it.
+	const tally = (pick: (r: (typeof allRunners)[number]) => string) => {
+		const out: Record<string, number> = {};
+		for (const r of allRunners) out[pick(r)] = (out[pick(r)] ?? 0) + 1;
+		return out;
+	};
+
+	return {
+		runners,
+		filter,
+		total: allRunners.length,
+		kindCounts: tally((r) => r.kind),
+		langCounts: tally((r) => r.language),
+		disabledTotal: allRunners.filter((r) => !r.enabled).length
+	};
 };
 
 function parseEnv(raw: string): Record<string, string> | undefined {

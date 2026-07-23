@@ -1,7 +1,10 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { invalidateAll } from '$app/navigation';
-	import type { TestRunner } from '$lib/types';
+	import { goto, invalidateAll } from '$app/navigation';
+	import { page } from '$app/stores';
+	import { TEST_KINDS, type TestRunner } from '$lib/types';
+	import { TEST_KIND_META } from '$lib/checkpoint/meta';
+	import { isActive } from '$lib/checkpoint/catalogFilters';
 	import { toast } from '$lib/stores/toasts.svelte';
 	import { runnerTone } from '$lib/checkpoint/tone';
 	import Icon from '$lib/components/Icon.svelte';
@@ -12,6 +15,16 @@
 	let { data } = $props();
 	let showForm = $state(false);
 	let formRunner = $state<TestRunner | null>(null);
+
+	const filterActive = $derived(isActive(data.filter));
+
+	/** Filters live in the URL so a narrowed grid is shareable and Back undoes it. */
+	function setParam(key: string, value: string) {
+		const params = new URLSearchParams($page.url.searchParams);
+		if (value) params.set(key, value);
+		else params.delete(key);
+		goto(`/qa/runners?${params}`, { keepFocus: true, noScroll: true, replaceState: true });
+	}
 
 	function newRunner() {
 		formRunner = null;
@@ -26,9 +39,49 @@
 <div class="table-area">
 	<div class="toolbar">
 		<h1>Runners</h1>
-		<span style="font-size:12.5px;color:var(--muted)">how each kind of test executes &amp; reports</span>
+		<span class="count">
+			{data.runners.length === data.total ? `${data.total} runners` : `${data.runners.length} of ${data.total} runners`}
+		</span>
 		<div class="toolbar-spacer"></div>
 		<button class="btn btn-primary" onclick={newRunner}><Icon name="plus" /> New runner</button>
+	</div>
+
+	<div class="filter-bar">
+		<div class="fb-search">
+			<Icon name="search" />
+			<input
+				class="inp inp-sm"
+				placeholder="Name, id or command…"
+				value={data.filter.q}
+				oninput={(e) => setParam('q', e.currentTarget.value)}
+			/>
+		</div>
+		<select class="sel sel-sm" value={data.filter.kind} onchange={(e) => setParam('kind', e.currentTarget.value)}>
+			<option value="">Any type</option>
+			{#each TEST_KINDS as k (k)}
+				{#if data.kindCounts[k]}<option value={k}>{TEST_KIND_META[k].label} ({data.kindCounts[k]})</option>{/if}
+			{/each}
+		</select>
+		<select class="sel sel-sm" value={data.filter.lang} onchange={(e) => setParam('lang', e.currentTarget.value)}>
+			<option value="">Any language</option>
+			{#each Object.entries(data.langCounts).sort() as [lang, n] (lang)}<option value={lang}>{lang} ({n})</option>{/each}
+		</select>
+		<select class="sel sel-sm" value={data.filter.health} onchange={(e) => setParam('health', e.currentTarget.value)}>
+			<option value="">Any health</option>
+			<option value="healthy">Healthy</option>
+			<option value="flaky">Flaky</option>
+			<option value="failing">Failing</option>
+			<option value="unknown">Never run</option>
+		</select>
+		<select class="sel sel-sm" value={data.filter.enabled} onchange={(e) => setParam('enabled', e.currentTarget.value)}>
+			<option value="">Enabled &amp; disabled</option>
+			<option value="on">Enabled only</option>
+			<option value="off">Disabled only ({data.disabledTotal})</option>
+		</select>
+		<div class="fb-spacer"></div>
+		{#if filterActive}
+			<a class="btn btn-ghost btn-sm" href="/qa/runners"><Icon name="x" /> Reset</a>
+		{/if}
 	</div>
 
 	<div class="scroll">
@@ -91,9 +144,15 @@
 			<div class="empty">
 				<div class="empty-in">
 					<div class="ei"><Icon name="terminal" /></div>
-					<h3>No runners yet</h3>
-					<p>A runner is the single place that knows how a class of test is invoked and how its report is read. Define one to start recording automated results.</p>
-					<button class="btn btn-primary" style="margin-top:14px" onclick={newRunner}><Icon name="plus" /> New runner</button>
+					{#if filterActive}
+						<h3>No runners match this filter</h3>
+						<p>{data.total} runner{data.total === 1 ? '' : 's'} defined — clear the filter to see them.</p>
+						<a class="btn btn-primary" style="margin-top:14px" href="/qa/runners"><Icon name="x" /> Reset filter</a>
+					{:else}
+						<h3>No runners yet</h3>
+						<p>A runner is the single place that knows how a class of test is invoked and how its report is read. Define one to start recording automated results.</p>
+						<button class="btn btn-primary" style="margin-top:14px" onclick={newRunner}><Icon name="plus" /> New runner</button>
+					{/if}
 				</div>
 			</div>
 		{/if}

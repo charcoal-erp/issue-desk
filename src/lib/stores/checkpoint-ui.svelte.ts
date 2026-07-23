@@ -6,6 +6,7 @@
 export type FailureScope =
 	| { kind: 'all' }
 	| { kind: 'run'; runId: string }
+	| { kind: 'suite'; suiteId: string; suiteName?: string }
 	| { kind: 'case'; caseId: string }
 	| { kind: 'filter'; query: string };
 

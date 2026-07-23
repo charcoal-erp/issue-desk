@@ -3,7 +3,7 @@
 	import { page } from '$app/stores';
 	import { enhance } from '$app/forms';
 	import { ENV_LABEL, rateColor } from '$lib/checkpoint/meta';
-	import { openLaunch } from '$lib/stores/checkpoint-ui.svelte';
+	import { openFailures, openLaunch } from '$lib/stores/checkpoint-ui.svelte';
 	import { toast } from '$lib/stores/toasts.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import KindBadge from '$lib/components/checkpoint/KindBadge.svelte';
@@ -124,6 +124,16 @@
 						</div>
 					</button>
 					<div class="run-actions">
+						{#if r.counts.fail + r.counts.blocked > 0}
+							<!-- Blocked counts too, matching what the export actually contains. -->
+							<button
+								class="btn btn-danger btn-xs"
+								title="Build a Claude Code prompt from this run's {r.counts.fail} failing and {r.counts.blocked} blocked case{r.counts.fail + r.counts.blocked === 1 ? '' : 's'} — with the runner output"
+								onclick={() => openFailures({ kind: 'run', runId: r.id })}
+							>
+								<Icon name="code" /> Fix {r.counts.fail + r.counts.blocked}
+							</button>
+						{/if}
 						<form method="POST" action="?/archiveRun" use:enhance={() => async ({ result }) => {
 							if (result.type === 'success') { toast(r.archived ? 'Run un-archived' : 'Run archived', r.archived ? 'It can be cleaned up again' : 'Cleanups will keep it'); await invalidateAll(); }
 						}}>

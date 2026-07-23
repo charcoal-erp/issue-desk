@@ -15,11 +15,44 @@ export interface FailureItem {
 	parentIssueTitle?: string | null;
 }
 
+/**
+ * The captured stdout/stderr of one runner invocation.
+ *
+ * Emitted once per invocation at the end of the prompt rather than under each
+ * failure: fifteen cases from one unit tier share one log, and repeating it
+ * fifteen times buries the failures it is meant to explain.
+ */
+export interface InvocationLog {
+	runnerId: string;
+	runnerName: string;
+	command: string;
+	workingDir: string;
+	exitCode: number | null;
+	log: string;
+	truncated: boolean;
+}
+
 export interface FailureExportCtx {
 	generatedAt: Date;
 	runId?: string;
 	suiteName?: string;
 	environment?: string;
+	logs?: InvocationLog[];
+}
+
+/** Logs run to megabytes; the tail is where a failure surfaces. */
+const LOG_TAIL_LINES = 120;
+const LOG_MAX_CHARS = 12_000;
+
+export function trimLog(raw: string): { text: string; truncated: boolean } {
+	const lines = raw.replace(/\s+$/, '').split('\n');
+	let truncated = lines.length > LOG_TAIL_LINES;
+	let text = lines.slice(-LOG_TAIL_LINES).join('\n');
+	if (text.length > LOG_MAX_CHARS) {
+		text = text.slice(-LOG_MAX_CHARS);
+		truncated = true;
+	}
+	return { text, truncated };
 }
 
 function substituteEnv(command: string, env?: string): string {
@@ -95,6 +128,22 @@ export function failuresToMarkdown(items: FailureItem[], ctx: FailureExportCtx):
 	items.forEach((item, i) => {
 		out += `---\n\n${sectionFor(item, i + 1, ctx.environment)}\n`;
 	});
+
+	if (ctx.logs?.length) {
+		out += `---\n\n# Runner output\n\n`;
+		out += `_The console output of each runner that failed or reported a failing case. `;
+		out += `Parsed reports give you the assertion; these give you what happened around it — `;
+		out += `a missing service, a migration that did not apply, a port already bound._\n\n`;
+		for (const l of ctx.logs) {
+			out += `## \`${l.runnerId}\` — ${l.runnerName}\n\n`;
+			out += `- **Command:** \`${l.command}\`\n`;
+			out += `- **Working dir:** \`${l.workingDir}\`\n`;
+			out += `- **Exit code:** ${l.exitCode ?? 'unknown'}\n\n`;
+			if (l.truncated) out += `_Last ${LOG_TAIL_LINES} lines; earlier output omitted._\n\n`;
+			out += `\`\`\`\n${l.log}\n\`\`\`\n\n`;
+		}
+	}
+
 	out += `---\n\n## What I need back\n\n`;
 	out += `- The root cause of each failure.\n`;
 	out += `- Whether it is a real defect, a flaky test, or an incorrect test.\n`;
@@ -109,6 +158,15 @@ export function failuresToJson(items: FailureItem[], ctx: FailureExportCtx): str
 		run: ctx.runId ?? null,
 		suite: ctx.suiteName ?? null,
 		environment: ctx.environment ?? null,
+		runnerLogs: (ctx.logs ?? []).map((l) => ({
+			runnerId: l.runnerId,
+			runnerName: l.runnerName,
+			command: l.command,
+			workingDir: l.workingDir,
+			exitCode: l.exitCode,
+			truncated: l.truncated,
+			log: l.log
+		})),
 		failures: items.map((item) => {
 			const c = item.testCase;
 			return {

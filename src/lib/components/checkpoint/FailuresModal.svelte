@@ -1,12 +1,15 @@
 <script lang="ts">
 	import { cpUi, closeFailures } from '$lib/stores/checkpoint-ui.svelte';
 	import { toast } from '$lib/stores/toasts.svelte';
+	import { writeClipboard } from '$lib/clipboard';
 	import Icon from '../Icon.svelte';
 
-	type ScopeKind = 'all' | 'run' | 'case' | 'filter';
+	type ScopeKind = 'all' | 'run' | 'suite' | 'case' | 'filter';
 
 	let scopeKind = $state<ScopeKind>('all');
 	let runId = $state<string | null>(null);
+	let suiteId = $state<string | null>(null);
+	let suiteName = $state<string | null>(null);
 	let caseId = $state<string | null>(null);
 	let filterQuery = $state<string | null>(null);
 	let format = $state<'md' | 'json'>('md');
@@ -20,6 +23,8 @@
 		if (!f) return;
 		scopeKind = f.kind;
 		runId = f.kind === 'run' ? f.runId : null;
+		suiteId = f.kind === 'suite' ? f.suiteId : null;
+		suiteName = f.kind === 'suite' ? (f.suiteName ?? null) : null;
 		caseId = f.kind === 'case' ? f.caseId : null;
 		filterQuery = f.kind === 'filter' ? f.query : null;
 	});
@@ -34,6 +39,7 @@
 		copied = false;
 		const p = new URLSearchParams({ scope, format: fmt });
 		if (scope === 'run' && runId) p.set('runId', runId);
+		if (scope === 'suite' && suiteId) p.set('suiteId', suiteId);
 		if (scope === 'case' && caseId) p.set('caseId', caseId);
 		if (scope === 'filter' && filterQuery) p.set('filter', filterQuery);
 		try {
@@ -46,11 +52,10 @@
 	}
 
 	async function copy() {
-		try {
-			await navigator.clipboard.writeText(content);
+		if (await writeClipboard(content)) {
 			copied = true;
 			toast('Copied', 'Paste into Claude Code');
-		} catch {
+		} else {
 			toast('Copy failed', 'Select the text and copy manually');
 		}
 	}
@@ -82,7 +87,7 @@
 				<div class="mh-icon" style="background:var(--fail-soft);color:#C0343A"><Icon name="code" /></div>
 				<div>
 					<h2>Test failures → Claude Code</h2>
-					<div class="mh-sub">Every failure with its command, error and expected behaviour — as one prompt</div>
+					<div class="mh-sub">Every failure with its command, error, expected behaviour and runner output — as one prompt</div>
 				</div>
 				<button class="x" onclick={closeFailures} aria-label="Close"><Icon name="x" /></button>
 			</div>
@@ -91,6 +96,7 @@
 				<div class="scope-row">
 					<button class="scope-chip" class:on={scopeKind === 'all'} onclick={() => (scopeKind = 'all')}>All failing cases</button>
 					{#if runId}<button class="scope-chip" class:on={scopeKind === 'run'} onclick={() => (scopeKind = 'run')}>This run</button>{/if}
+					{#if suiteId}<button class="scope-chip" class:on={scopeKind === 'suite'} onclick={() => (scopeKind = 'suite')}>{suiteName ?? suiteId} — last run</button>{/if}
 					{#if filterQuery !== null}<button class="scope-chip" class:on={scopeKind === 'filter'} onclick={() => (scopeKind = 'filter')}>Current case filter</button>{/if}
 					{#if caseId}<button class="scope-chip" class:on={scopeKind === 'case'} onclick={() => (scopeKind = 'case')}>Single case {caseId}</button>{/if}
 				</div>
@@ -110,7 +116,7 @@
 			</div>
 
 			<div class="modal-foot">
-				<div class="ff">Paste into Claude Code — it has the spec path, the reproduce command and the expected result for each failure.</div>
+				<div class="ff">Paste into Claude Code — it has the spec path, the reproduce command and the expected result for each failure, plus the console output of every runner that failed.</div>
 				<button class="btn btn-ghost" onclick={closeFailures}>Close</button>
 				<button class="btn btn-dark" onclick={copy}><Icon name={copied ? 'check' : 'copy'} /> {copied ? 'Copied' : 'Copy prompt'}</button>
 			</div>

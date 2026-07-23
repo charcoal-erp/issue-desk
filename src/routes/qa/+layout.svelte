@@ -1,6 +1,7 @@
 <script lang="ts">
 	import '$lib/checkpoint.css';
 	import { page } from '$app/state';
+	import { goto } from '$app/navigation';
 	import Icon from '$lib/components/Icon.svelte';
 	import WorkspaceSwitcher from '$lib/components/WorkspaceSwitcher.svelte';
 	import LaunchModal from '$lib/components/checkpoint/LaunchModal.svelte';
@@ -19,6 +20,19 @@
 
 	function isActive(href: string): boolean {
 		return href === '/qa' ? page.url.pathname === '/qa' : page.url.pathname.startsWith(href);
+	}
+
+	/**
+	 * The box keeps whatever was searched for while you are on the results page,
+	 * so refining a query means editing it rather than retyping it; anywhere else
+	 * it starts empty.
+	 */
+	let q = $state(page.url.pathname === '/qa/search' ? (page.url.searchParams.get('q') ?? '') : '');
+
+	function runSearch(e: SubmitEvent) {
+		e.preventDefault();
+		const term = q.trim();
+		if (term) goto(`/qa/search?q=${encodeURIComponent(term)}`);
 	}
 
 	const currentUser = $derived(data.users.find((u) => u.id === data.currentUserId) ?? data.users[0]);
@@ -42,10 +56,18 @@
 		<a class="bm" href="/qa" aria-label="Checkpoint home"><Icon name="task" /></a>
 		<WorkspaceSwitcher current="qa" />
 		<div class="topbar-spacer"></div>
-		<div class="topsearch">
+		<form class="topsearch" onsubmit={runSearch}>
 			<Icon name="search" />
-			<input placeholder="Search cases, suites, runs…" aria-label="Search Checkpoint" />
-		</div>
+			<input
+				name="q"
+				bind:value={q}
+				placeholder="Search cases, suites, runs…"
+				aria-label="Search Checkpoint"
+				onkeydown={(e) => {
+					if (e.key === 'Escape') q = '';
+				}}
+			/>
+		</form>
 		<button
 			class="icon-btn"
 			title="Export failures for Claude Code"

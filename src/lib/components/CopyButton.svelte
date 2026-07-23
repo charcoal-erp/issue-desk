@@ -1,14 +1,11 @@
 <script lang="ts">
 	import Icon from './Icon.svelte';
+	import { writeClipboard } from '$lib/clipboard';
 
 	/**
-	 * Copy-to-clipboard with a fallback.
-	 *
-	 * `navigator.clipboard` only exists in a secure context, and Checkpoint is
-	 * routinely opened over a plain-http LAN address — a copy button that
-	 * silently does nothing there is worse than no button at all. So a failed
-	 * write falls back to the old selection trick, and if even that fails the
-	 * button says so rather than pretending it worked.
+	 * A copy button that reports what actually happened — if the write fails
+	 * (see writeClipboard for when that happens) it says so rather than showing
+	 * a tick and copying nothing.
 	 */
 	let {
 		text,
@@ -20,34 +17,8 @@
 	let phase = $state<'idle' | 'done' | 'failed'>('idle');
 	let timer: ReturnType<typeof setTimeout> | undefined;
 
-	function selectionCopy(value: string): boolean {
-		const ta = document.createElement('textarea');
-		ta.value = value;
-		ta.setAttribute('readonly', '');
-		ta.style.position = 'fixed';
-		ta.style.top = '-1000px';
-		ta.style.opacity = '0';
-		document.body.appendChild(ta);
-		ta.select();
-		let ok = false;
-		try {
-			ok = document.execCommand('copy');
-		} catch {
-			ok = false;
-		}
-		ta.remove();
-		return ok;
-	}
-
 	async function copy() {
-		let ok = false;
-		try {
-			await navigator.clipboard.writeText(text);
-			ok = true;
-		} catch {
-			ok = selectionCopy(text);
-		}
-		phase = ok ? 'done' : 'failed';
+		phase = (await writeClipboard(text)) ? 'done' : 'failed';
 		clearTimeout(timer);
 		timer = setTimeout(() => (phase = 'idle'), 1600);
 	}

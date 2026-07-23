@@ -68,3 +68,39 @@ export function pastedImages(e: ClipboardEvent, at: Date = new Date()): File[] {
 	if (e.clipboardData?.getData('text/plain') && isTextEntry(e.target)) return [];
 	return images;
 }
+
+/**
+ * Copy text to the clipboard, reporting whether it worked.
+ *
+ * `navigator.clipboard` only exists in a secure context, and these screens are
+ * routinely opened over a plain-http LAN address — so the modern API alone
+ * fails silently on exactly the machines a dashboard gets shared from. The
+ * selection fallback still works there.
+ */
+export async function writeClipboard(text: string): Promise<boolean> {
+	try {
+		await navigator.clipboard.writeText(text);
+		return true;
+	} catch {
+		return selectionCopy(text);
+	}
+}
+
+function selectionCopy(value: string): boolean {
+	const ta = document.createElement('textarea');
+	ta.value = value;
+	ta.setAttribute('readonly', '');
+	ta.style.position = 'fixed';
+	ta.style.top = '-1000px';
+	ta.style.opacity = '0';
+	document.body.appendChild(ta);
+	ta.select();
+	let ok = false;
+	try {
+		ok = document.execCommand('copy');
+	} catch {
+		ok = false;
+	}
+	ta.remove();
+	return ok;
+}

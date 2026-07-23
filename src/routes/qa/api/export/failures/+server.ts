@@ -4,11 +4,13 @@ import * as store from '$lib/server/store';
 import {
 	failuresToJson,
 	failuresToMarkdown,
+	trimLog,
 	type FailureExportCtx,
-	type FailureItem
+	type FailureItem,
+	type InvocationLog
 } from '$lib/server/checkpoint/failuresExport';
 import { failingCases } from '$lib/server/checkpoint/metrics';
-import type { CaseResult, ResultStatus, TestCase, TestCaseStatus, TestKind } from '$lib/types';
+import type { CaseResult, ResultStatus, TestCase, TestCaseStatus, TestKind, TestRun } from '$lib/types';
 import { RESULT_STATUSES, TEST_CASE_STATUSES, TEST_KINDS } from '$lib/types';
 
 function itemFor(c: TestCase, result: CaseResult): FailureItem {
@@ -20,7 +22,41 @@ function itemFor(c: TestCase, result: CaseResult): FailureItem {
 	};
 }
 
-/** GET /qa/api/export/failures?scope=all|run|case|filter&format=md|json */
+/**
+ * Console output for the invocations that matter: the ones that produced a
+ * failing case, plus any that exited non-zero — a runner that died before
+ * writing a report has no failing case to attach its log to, and that log is
+ * usually the one worth reading.
+ */
+function logsFor(run: TestRun, items: FailureItem[]): InvocationLog[] {
+	const failingRunners = new Set(items.map((i) => i.result.runnerId).filter(Boolean) as string[]);
+	return run.invocations
+		.filter((inv) => inv.log && (failingRunners.has(inv.runnerId) || (inv.exitCode ?? 0) !== 0))
+		.map((inv) => {
+			const { text, truncated } = trimLog(inv.log!);
+			return {
+				runnerId: inv.runnerId,
+				runnerName: cp.runner(inv.runnerId)?.name ?? inv.runnerId,
+				command: inv.command,
+				workingDir: inv.workingDir,
+				exitCode: inv.exitCode,
+				log: text,
+				truncated
+			};
+		});
+}
+
+function failuresOf(run: TestRun): FailureItem[] {
+	return run.results
+		.filter((r) => r.status === 'fail' || r.status === 'blocked')
+		.map((r) => {
+			const c = cp.getCase(r.testCaseId);
+			return c ? itemFor(c, r) : null;
+		})
+		.filter(Boolean) as FailureItem[];
+}
+
+/** GET /qa/api/export/failures?scope=all|run|suite|case|filter&format=md|json */
 export const GET: RequestHandler = async ({ url }) => {
 	await cp.ensureLoaded();
 	const scope = url.searchParams.get('scope') ?? 'all';
@@ -28,19 +64,19 @@ export const GET: RequestHandler = async ({ url }) => {
 	const ctx: FailureExportCtx = { generatedAt: new Date() };
 	let items: FailureItem[] = [];
 
-	if (scope === 'run') {
-		const run = cp.getRun(url.searchParams.get('runId') ?? '');
+	if (scope === 'run' || scope === 'suite') {
+		// A suite's failures are its most recent run's failures — asking for "the
+		// suite" means the state it is in now, not every failure it ever had.
+		const run =
+			scope === 'run'
+				? cp.getRun(url.searchParams.get('runId') ?? '')
+				: cp.runs().find((r) => r.suiteId === url.searchParams.get('suiteId'));
 		if (run) {
 			ctx.runId = run.id;
 			ctx.suiteName = run.suiteName;
 			ctx.environment = run.environment;
-			items = run.results
-				.filter((r) => r.status === 'fail' || r.status === 'blocked')
-				.map((r) => {
-					const c = cp.getCase(r.testCaseId);
-					return c ? itemFor(c, r) : null;
-				})
-				.filter(Boolean) as FailureItem[];
+			items = failuresOf(run);
+			ctx.logs = logsFor(run, items);
 		}
 	} else if (scope === 'case') {
 		const c = cp.getCase(url.searchParams.get('caseId') ?? '');

@@ -3,8 +3,10 @@ import type { Actions, PageServerLoad } from './$types';
 import * as cp from '$lib/server/store/checkpoint';
 import * as store from '$lib/server/store';
 import { createSuiteInputSchema } from '$lib/schemas';
-import { runPassRate } from '$lib/server/checkpoint/metrics';
+import { runCounts, runPassRate } from '$lib/server/checkpoint/metrics';
 import { kindCounts, suiteTone } from '$lib/checkpoint/tone';
+import { matchesSuite, type SuiteFilter } from '$lib/checkpoint/catalogFilters';
+import { timeAgo } from '$lib/checkpoint/meta';
 import type { TestKind } from '$lib/types';
 
 function actor(cookies: { get(name: string): string | undefined }): string {
@@ -15,15 +17,17 @@ function actor(cookies: { get(name: string): string | undefined }): string {
 export const load: PageServerLoad = async ({ url }) => {
 	await cp.ensureLoaded();
 	const runs = cp.runs();
+	const now = new Date();
 
 	// Suite cards with derived stats.
-	const cards = cp.suites().map((s) => {
+	const allCards = cp.suites().map((s) => {
 		const cases = s.caseIds.map((id) => cp.getCase(id)).filter(Boolean);
 		const allKinds = cases.map((c) => c!.kind);
 		const kinds = [...new Set(allKinds)] as TestKind[];
 		const manual = cases.filter((c) => c!.kind === 'manual').length;
 		const suiteRun = runs.find((r) => r.suiteId === s.id); // runs() is newest-first
 		const suiteRuns = runs.filter((r) => r.suiteId === s.id);
+		const counts = suiteRun ? runCounts(suiteRun) : null;
 		return {
 			id: s.id,
 			appCode: s.appCode,
@@ -38,10 +42,31 @@ export const load: PageServerLoad = async ({ url }) => {
 			manual,
 			automated: cases.length - manual,
 			lastPassRate: suiteRun ? runPassRate(suiteRun) : null,
+			// The last run's actual numbers, not just its percentage — "3 failed"
+			// is what you act on; "94%" is what you report.
+			lastRun: suiteRun && counts ? { runId: suiteRun.id, when: timeAgo(suiteRun.startedAt, now), ...counts } : null,
 			runCount: suiteRuns.length,
 			archivedRuns: suiteRuns.filter((r) => r.archived).length
 		};
 	});
+
+	const filter: SuiteFilter = {
+		q: url.searchParams.get('q') ?? '',
+		kind: url.searchParams.get('kind') ?? '',
+		env: url.searchParams.get('env') ?? '',
+		state: url.searchParams.get('state') ?? ''
+	};
+	const cards = allCards.filter((c) => matchesSuite(c, filter));
+
+	// Option counts are computed over everything, so a dropdown never hides a
+	// choice just because the current filter excludes it.
+	const kindCountsAll: Record<string, number> = {};
+	for (const c of allCards) {
+		for (const k of c.tone === 'seed' ? ['seed', ...c.kinds] : c.kinds) {
+			kindCountsAll[k] = (kindCountsAll[k] ?? 0) + 1;
+		}
+	}
+	const envs = [...new Set(allCards.map((c) => c.defaultEnv))].sort();
 
 	// Editor mode data.
 	const editId = url.searchParams.get('edit');
@@ -76,7 +101,15 @@ export const load: PageServerLoad = async ({ url }) => {
 		};
 	}
 
-	return { cards, editor };
+	return {
+		cards,
+		editor,
+		filter,
+		total: allCards.length,
+		kindCounts: kindCountsAll,
+		envs,
+		failingTotal: allCards.filter((c) => c.lastRun && c.lastRun.fail + c.lastRun.blocked > 0).length
+	};
 };
 
 function parseJsonArray(raw: FormDataEntryValue | null): string[] {
