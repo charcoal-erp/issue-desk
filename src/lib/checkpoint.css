@@ -1223,9 +1223,12 @@
 	display: flex;
 	align-items: center;
 }
-.cp .filter-bar .fb-search :global(svg) {
+/* Plain `svg`, not `:global(svg)` — this is a stylesheet, not a component
+   style block, and Svelte's :global() is not valid CSS. The browser dropped
+   the whole rule, which left the icon sitting outside the field. */
+.cp .filter-bar .fb-search svg {
 	position: absolute;
-	left: 9px;
+	right: 10px;
 	color: var(--faint);
 	pointer-events: none;
 }
@@ -1236,7 +1239,7 @@
 	min-width: 150px;
 }
 .cp .filter-bar .fb-search .inp {
-	padding-left: 30px;
+	padding-right: 32px;
 	min-width: 210px;
 }
 
