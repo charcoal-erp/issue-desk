@@ -14,6 +14,17 @@ export function dataDir(): string {
 	return path.resolve(env.DATA_DIR || './data');
 }
 
+/**
+ * Root of the Checkpoint content (tests / suites / runs / runners.json /
+ * reports). Defaults to DATA_DIR — one combined root, the original layout —
+ * but can point at a separate folder (e.g. a git-versioned content repo like
+ * charcoal's platform-testing) via CHECKPOINT_DATA_DIR, leaving the issue
+ * tracker's data untouched where it is.
+ */
+export function checkpointDataDir(): string {
+	return env.CHECKPOINT_DATA_DIR ? path.resolve(env.CHECKPOINT_DATA_DIR) : dataDir();
+}
+
 export function configDir(): string {
 	return path.join(dataDir(), 'config');
 }
@@ -32,7 +43,9 @@ export function sequenceFile(appId: string): string {
 
 // ---------- Checkpoint directories (design doc §9) ----------
 export function testsDir(appId?: string): string {
-	return appId ? path.join(dataDir(), 'tests', appId) : path.join(dataDir(), 'tests');
+	return appId
+		? path.join(checkpointDataDir(), 'tests', appId)
+		: path.join(checkpointDataDir(), 'tests');
 }
 
 export function testModuleFile(appId: string, moduleId: string): string {
@@ -45,7 +58,7 @@ export function checkpointSequenceFile(appId: string): string {
 }
 
 export function suitesDir(): string {
-	return path.join(dataDir(), 'suites');
+	return path.join(checkpointDataDir(), 'suites');
 }
 
 export function suitesFile(appId: string): string {
@@ -53,7 +66,9 @@ export function suitesFile(appId: string): string {
 }
 
 export function runsDir(appId?: string): string {
-	return appId ? path.join(dataDir(), 'runs', appId) : path.join(dataDir(), 'runs');
+	return appId
+		? path.join(checkpointDataDir(), 'runs', appId)
+		: path.join(checkpointDataDir(), 'runs');
 }
 
 export function runFile(appId: string, runId: string): string {
@@ -61,12 +76,14 @@ export function runFile(appId: string, runId: string): string {
 }
 
 export function runnersFile(): string {
-	return path.join(dataDir(), 'runners.json');
+	return path.join(checkpointDataDir(), 'runners.json');
 }
 
 /** Captured raw reports & artifacts, copied in at ingest for stable paths. */
 export function reportsDir(runId?: string): string {
-	return runId ? path.join(dataDir(), 'reports', runId) : path.join(dataDir(), 'reports');
+	return runId
+		? path.join(checkpointDataDir(), 'reports', runId)
+		: path.join(checkpointDataDir(), 'reports');
 }
 
 export function uploadsDir(appId?: string, issueId?: string): string {

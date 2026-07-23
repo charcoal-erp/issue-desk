@@ -15,6 +15,7 @@
 		appCode: string;
 		title: string;
 		kind: TestKind;
+		runnerId: string | null;
 	}
 	interface Editor {
 		suite: {
@@ -27,7 +28,7 @@
 			caseIds: string[];
 		} | null;
 		allCases: CaseRef[];
-		runners: Array<{ id: string; name: string; kind: TestKind; command: string }>;
+		runners: Array<{ id: string; name: string; kind: TestKind; command: string; enabled: boolean }>;
 		nextId: string | null;
 	}
 
@@ -65,14 +66,30 @@
 				(libType === 'all' || c.kind === libType)
 		)
 	);
-	const suiteKinds = $derived([...new Set(membership.map((c) => c.kind))] as TestKind[]);
-	const invokes = $derived(
-		suiteKinds.map((kind) => ({
-			kind,
-			count: membership.filter((c) => c.kind === kind).length,
-			runner: editor.runners.find((r) => r.kind === kind) ?? null
-		}))
-	);
+	// Mirrors resolveRunner() in src/lib/server/checkpoint/launch.ts — a case's
+	// own runner when it is enabled and of the right kind, else the first
+	// enabled runner of that kind. Membership changes live here, so the grouping
+	// has to be derived client-side.
+	function runnerFor(c: CaseRef) {
+		if (c.runnerId) {
+			const own = editor.runners.find((r) => r.id === c.runnerId);
+			if (own?.enabled && own.kind === c.kind) return own;
+		}
+		return editor.runners.find((r) => r.kind === c.kind && r.enabled) ?? null;
+	}
+
+	/** One row per runner this suite will invoke — several per kind is normal. */
+	const invokes = $derived.by(() => {
+		const rows = new Map<string, { key: string; kind: TestKind; count: number; runner: { id: string; name: string; command: string } | null }>();
+		for (const c of membership) {
+			const runner = c.kind === 'manual' ? null : runnerFor(c);
+			const key = runner ? runner.id : `none:${c.kind}`;
+			const row = rows.get(key);
+			if (row) row.count += 1;
+			else rows.set(key, { key, kind: c.kind, count: 1, runner });
+		}
+		return [...rows.values()];
+	});
 	const appLetters = $derived([...new Set(editor.allCases.map((c) => c.appCode))]);
 
 	function add(id: string) {
@@ -126,9 +143,9 @@
 			<div class="sec-title">Runners this suite will invoke</div>
 			{#if invokes.length}
 				<div class="panel-bd tight" style="padding:0">
-					{#each invokes as row (row.kind)}
+					{#each invokes as row (row.key)}
 						<div class="health-row">
-							<span class="hdot {row.runner ? 'h-ok' : 'h-idle'}"></span>
+							<span class="hdot {row.runner || row.kind === 'manual' ? 'h-ok' : 'h-idle'}"></span>
 							<div class="hr-b">
 								<div class="hr-n"><KindBadge kind={row.kind} small /> {row.runner?.name ?? (row.kind === 'manual' ? 'Manual execution' : 'No runner defined')}</div>
 								<div class="hr-m">{row.kind === 'manual' ? 'a person marks each case in the run' : (row.runner?.command ?? '—')}</div>

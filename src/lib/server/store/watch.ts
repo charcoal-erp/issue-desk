@@ -1,6 +1,6 @@
 import path from 'node:path';
 import { env } from '$env/dynamic/private';
-import { dataDir } from '../fs/paths';
+import { checkpointDataDir, dataDir } from '../fs/paths';
 
 let watching = false;
 
@@ -18,11 +18,12 @@ export async function startWatcherIfEnabled(reload: () => Promise<void>): Promis
 		[
 			path.join(dataDir(), 'config'),
 			path.join(dataDir(), 'issues'),
-			// Checkpoint data directories + the global runner catalogue.
-			path.join(dataDir(), 'tests'),
-			path.join(dataDir(), 'suites'),
-			path.join(dataDir(), 'runs'),
-			path.join(dataDir(), 'runners.json')
+			// Checkpoint data directories + the global runner catalogue — these
+			// live under CHECKPOINT_DATA_DIR when it is set (same dir otherwise).
+			path.join(checkpointDataDir(), 'tests'),
+			path.join(checkpointDataDir(), 'suites'),
+			path.join(checkpointDataDir(), 'runs'),
+			path.join(checkpointDataDir(), 'runners.json')
 		],
 		{
 			ignoreInitial: true,

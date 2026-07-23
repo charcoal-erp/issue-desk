@@ -9,7 +9,7 @@
 
 	let { data } = $props();
 
-	let tab = $state<'apps' | 'users'>('apps');
+	let tab = $state<'apps' | 'users' | 'data'>('apps');
 	let editor = $state<
 		| null
 		| { kind: 'user'; user: User | null }
@@ -18,6 +18,45 @@
 
 	function closeEditor() {
 		editor = null;
+	}
+
+	let importInput = $state<HTMLInputElement | null>(null);
+	let importing = $state(false);
+
+	async function runImport() {
+		const file = importInput?.files?.[0];
+		if (!file) {
+			toast('No file selected', 'Choose an export zip first.');
+			return;
+		}
+		if (
+			!confirm(
+				`Replace ALL IssueDesk data (issues, config, attachments) with the contents of "${file.name}"?\n\n` +
+					'The current data is kept in data/.backups/pre-import-… — Checkpoint data is not touched.'
+			)
+		)
+			return;
+		importing = true;
+		try {
+			const body = new FormData();
+			body.append('file', file);
+			const res = await fetch('/api/data/import', { method: 'POST', body });
+			const result = await res.json();
+			if (!res.ok) {
+				toast('Import failed', String(result.message ?? res.statusText));
+				return;
+			}
+			if (importInput) importInput.value = '';
+			await invalidateAll();
+			toast(
+				'Data imported',
+				`${result.counts.issues} issues restored (snapshot from ${new Date(result.exportedAt).toLocaleString()}).`
+			);
+		} catch (e) {
+			toast('Import failed', String((e as Error).message ?? e));
+		} finally {
+			importing = false;
+		}
 	}
 </script>
 
@@ -35,9 +74,45 @@
 		<div class="admin-tabs">
 			<button class="admin-tab" class:on={tab === 'apps'} onclick={() => (tab = 'apps')}>Applications</button>
 			<button class="admin-tab" class:on={tab === 'users'} onclick={() => (tab = 'users')}>Users</button>
+			<button class="admin-tab" class:on={tab === 'data'} onclick={() => (tab = 'data')}>Data</button>
 		</div>
 
-		{#if tab === 'apps'}
+		{#if tab === 'data'}
+			<div class="admin-panel on">
+				<div class="admin-card-head">
+					<h3>Export snapshot</h3>
+					<a class="btn btn-primary btn-sm" href="/api/data/export" download>
+						<Icon name="download" />Export data (.zip)
+					</a>
+				</div>
+				<div class="data-card data-pad">
+					<p class="data-desc">
+						Downloads a single zip with <b>every issue</b> across all applications — full details,
+						activity history, sequence counters, reference config (users, applications, settings)
+						and all attached <b>images &amp; documents</b>. Checkpoint content (test cases, suites,
+						runs, runners) is not included. Use it for backups or to move this instance's data to
+						another machine.
+					</p>
+				</div>
+
+				<div class="admin-card-head" style="margin-top:18px">
+					<h3>Import snapshot</h3>
+				</div>
+				<div class="data-card data-pad">
+					<p class="data-desc">
+						Restores a zip produced by the export above. <b>Replaces</b> all current IssueDesk data
+						(issues, config, attachments) after validating the archive; the previous state is kept
+						in <b>data/.backups/pre-import-…</b> for manual recovery. Checkpoint data is untouched.
+					</p>
+					<div class="import-row">
+						<input class="inp" type="file" accept=".zip,application/zip" bind:this={importInput} />
+						<button class="btn btn-primary btn-sm" onclick={runImport} disabled={importing}>
+							<Icon name="upload" />{importing ? 'Importing…' : 'Import data'}
+						</button>
+					</div>
+				</div>
+			</div>
+		{:else if tab === 'apps'}
 			<div class="admin-panel on">
 				<div class="admin-card-head">
 					<h3>Applications, modules, pages &amp; forms</h3>
@@ -220,5 +295,27 @@
 		width: 16px;
 		height: 16px;
 		accent-color: var(--accent);
+	}
+	.data-pad {
+		padding: 16px;
+	}
+	.data-desc {
+		margin: 0 0 12px;
+		color: var(--muted);
+		font-size: 13px;
+		line-height: 1.55;
+		max-width: 640px;
+	}
+	.data-desc:last-child {
+		margin-bottom: 0;
+	}
+	.import-row {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		flex-wrap: wrap;
+	}
+	.import-row input[type='file'] {
+		max-width: 340px;
 	}
 </style>

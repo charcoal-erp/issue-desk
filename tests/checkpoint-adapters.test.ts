@@ -222,3 +222,90 @@ describe('exit-code adapter + gaps', () => {
 		expect(s.message).toContain('not reported');
 	});
 });
+
+describe('checkpoint-json adapter', () => {
+	it('reads the normalized entry shape emitted by converter scripts', () => {
+		const report = JSON.stringify([
+			{
+				identifier: 'W05 — Login › rejects a bad password',
+				status: 'FAIL',
+				durationMs: 412,
+				message: 'expected 401, got 500',
+				stack: 'traceback…',
+				artifacts: ['logs/w05.log']
+			},
+			{ identifier: 'W05 — Login › accepts a good password', status: 'PASS', durationMs: 88 }
+		]);
+		const entries = parseReport('checkpoint-json', report);
+		expect(entries).toHaveLength(2);
+		expect(entries[0]).toMatchObject({
+			identifier: 'W05 — Login › rejects a bad password',
+			status: 'fail',
+			durationMs: 412,
+			message: 'expected 401, got 500',
+			artifacts: ['logs/w05.log']
+		});
+		expect(entries[1].status).toBe('pass');
+	});
+
+	it('accepts a wrapped array and the usual field and status spellings', () => {
+		const report = JSON.stringify({
+			totals: { total: 4 },
+			results: [
+				{ name: 'a', status: 'passed', duration_ms: 10 },
+				{ test: 'b', status: 'skipped' },
+				{ id: 'c', status: 'blocked', notes: 'environment down' },
+				{ testName: 'd', status: 'error' }
+			]
+		});
+		const entries = parseReport('checkpoint-json', report);
+		expect(entries.map((e) => [e.identifier, e.status])).toEqual([
+			['a', 'pass'],
+			['b', 'skipped'],
+			['c', 'blocked'],
+			['d', 'fail']
+		]);
+		expect(entries[0].durationMs).toBe(10);
+		expect(entries[2].message).toBe('environment down');
+	});
+
+	it('never invents a pass: unknown statuses and unusable rows are dropped or skipped', () => {
+		const entries = parseReport(
+			'checkpoint-json',
+			JSON.stringify([
+				{ identifier: 'a', status: 'weird' },
+				{ status: 'pass' }, // no identifier — unusable
+				null,
+				'nonsense'
+			])
+		);
+		expect(entries).toEqual([
+			{
+				identifier: 'a',
+				aliases: undefined,
+				status: 'skipped',
+				durationMs: null,
+				message: null,
+				stack: null,
+				artifacts: [],
+				flaky: undefined
+			}
+		]);
+	});
+
+	it('returns nothing for malformed JSON instead of throwing', () => {
+		expect(parseReport('checkpoint-json', '{oops')).toEqual([]);
+		expect(parseReport('checkpoint-json', '')).toEqual([]);
+	});
+
+	it('matches its entries to cases by external test id', () => {
+		const cases = [tc({ id: 'TC-CHR-20', externalTestId: 'W05 — Login › accepts a good password' })];
+		const entries = parseReport(
+			'checkpoint-json',
+			JSON.stringify([{ identifier: 'W05 — Login › accepts a good password', status: 'pass' }])
+		);
+		const { results, orphans } = matchEntries(entries, cases, { by: 'testName' }, 'RNR-8');
+		expect(orphans).toHaveLength(0);
+		expect(results[0].status).toBe('pass');
+	});
+});

@@ -331,6 +331,7 @@ Format-specific notes:
 - **vitest-json / pytest-json** — assertion results with their failure messages.
 - **tap** — `ok` / `not ok` lines with the description as the identifier; YAML diagnostics become the message.
 - **exit-code** — one synthetic result per mapped case: exit `0` → pass, non-zero → fail with the tail of stdout/stderr as the message.
+- **checkpoint-json** — the normalized shape itself, as a format any tool can emit: `[{ identifier, status, durationMs?, message?, stack?, artifacts?, aliases?, flaky? }]`, or that array wrapped under `results` / `entries` / `tests`. This is the escape hatch for a suite whose native output no adapter understands: a small converter ships **with that suite**, and Checkpoint stays generic instead of learning about one project's report schema. Status spellings are tolerated (`PASS`/`passed`/`ok`, `FAIL`/`error`, `SKIP`, `blocked`); a status it cannot read becomes `skipped`, never a silent pass.
 
 ### 7.2 Orphans and gaps
 
@@ -349,18 +350,35 @@ The **Launch** dialog is the single entry point, reachable from a suite card, th
 
 1. **Suite** — which suite to run.
 2. **Environment** — `local` / `ci` / `staging` / `prod`, substituted into commands as `$ENV`.
-3. **Participating runners** — every kind present in the suite, each tickable. Untick *visual* to skip the slow pass; untick everything but *manual* for a pure manual session.
+3. **Participating runners** — one row per runner the suite will actually invoke, ticked by kind. Untick *visual* to skip the slow pass; untick everything but *manual* for a pure manual session.
 4. **Execution plan** — a preview of exactly what will happen:
 
 ```
-$ cd services/api && pytest tests/api -q --junitxml=reports/api-junit.xml
-  → parse reports/api-junit.xml (junit-xml) → 1 case
+$ cd modules/finance/accounting && npm run test:unit -- --reporter xunit …
+  → parse reports/unit.xml (junit-xml) → 12 case(s)
 $ cd apps/web && npx playwright test --reporter=json
-  → parse reports/e2e.json (playwright-json) → 1 case
-# 1 manual case(s) → checklist for the runner
+  → parse reports/e2e.json (playwright-json) → 1 case(s)
+# 1 manual case(s) → checklist for the tester
+# 2 runners execute in order, one at a time
 ```
 
-On start Checkpoint creates the `TestRun`, dispatches each enabled runner (sequentially by default; parallel is a per-runner flag), ingests each report as it lands, and leaves manual cases `pending` for a person. The run is complete when every automated invocation has finished and every manual case has been marked; at that point it becomes immutable history.
+### 8.1 Which runner executes a case
+
+Cases are grouped by **runner**, not by kind. A platform has many runners of the same kind — a unit runner per module, an API runner per topology — and a suite that spans two of them must invoke both. Each case resolves to the runner it names (`TestCase.runnerId`) when that runner exists, is enabled and matches the case's kind; otherwise to the first enabled runner of that kind. Cases of a participating kind with no runner at all are recorded `skipped` with the reason. The launch preview and the suite editor's "runners this suite will invoke" panel apply the same resolution, so a preview cannot promise something the launch will not do.
+
+### 8.2 Execution lifecycle
+
+On start Checkpoint creates the `TestRun`, records everything already known (unrunnable cases, the manual checklist), saves it, and **returns the run id immediately**. Runners are then dispatched in the background, one at a time, persisting after every invocation. Suites take minutes to hours; holding the HTTP request open for that would tie a run to one browser tab and to a proxy's read timeout. The run page polls while a run is executing, so results appear per invocation as they land.
+
+A run is complete when every automated invocation has finished and every manual case has been marked; at that point it becomes immutable history. Until then it is in one of three honest states:
+
+- **running** — dispatch is in flight in this process.
+- **awaiting manual results** — automated work is done; a person still has cases to mark.
+- **interrupted** — no `completedAt`, nothing in flight: the server restarted mid-run. The partial record stands, and the run can be closed as history or launched again.
+
+**One automated run at a time.** Suites are routinely mutually destructive — one end-to-end suite resets the database another suite's fixtures depend on — so a second launch while one is executing is refused with `409` naming the run in flight, rather than silently interleaved. Manual-only runs spawn nothing and are never blocked.
+
+**Timeouts reap the whole process tree.** A runner command is executed through a shell and spawned into its own process group; on timeout the group is killed. Killing only the direct child would leave whatever it started — a service still holding its port — running against the next run. Waiting for output is likewise bounded: an orphan holding the pipe open can no longer hang the run.
 
 There is deliberately **no `mode` field** on a run. A run is not "manual" or "automated" — it is whatever mix of runners took part.
 
@@ -371,19 +389,24 @@ There is deliberately **no `mode` field** on a run. A run is not "manual" or "au
 **Storage.** JSON files on disk, git-committable, no database — the same model as IssueDesk, with new directories:
 
 ```
-/data
+DATA_DIR/                           # the issue tracker's data
+├── config/…                        # EXISTING — users, applications, settings
 ├── issues/<app>/<module>.json      # EXISTING — unchanged
-├── uploads/…                       # EXISTING — reused
-├── _sequence.json                  # EXISTING — extended with new counters
-│
+├── issues/<app>/_sequence.json     # EXISTING — per-app issue counter
+└── uploads/…                       # EXISTING — reused for failure artifacts
+
+CHECKPOINT_DATA_DIR/                # Checkpoint content (defaults to DATA_DIR)
 ├── runners.json                    # runner definitions
 ├── tests/<app>/<module>.json       # TestCase[] per app/module
+├── tests/<app>/_sequence.json      # per-app testCase / suite / run counters
 ├── suites/<app>.json               # TestSuite[] per app
 ├── runs/<app>/<runId>.json         # one file per run (immutable history)
 └── reports/<runId>/                # captured raw reports & artifacts
 ```
 
-Test cases live beside the code they verify and diff cleanly in review. Runs are written once, so a file-per-run keeps history append-only and prunable. Raw reports and artifacts are copied into `/data/reports/<runId>/` at ingest so a failure export can reference a stable path after the workspace is cleaned.
+Test cases live beside the code they verify and diff cleanly in review. Runs are written once, so a file-per-run keeps history append-only and prunable. Raw reports and artifacts are copied into `reports/<runId>/` at ingest so a failure export can reference a stable path after the workspace is cleaned.
+
+**Two roots, one store.** Left unset, `CHECKPOINT_DATA_DIR` is `DATA_DIR` and everything lives under one root, as originally designed. Setting it separates the halves: test content — which is authored, reviewed and shared like source — can live in its own git repository, while the issue tracker's data stays wherever that instance already keeps it. Each root keeps its own `.backups/` boot snapshots, and the `WATCH_FILES` watcher follows both, so a `git pull` into the content repo re-syncs the running dashboard. The taxonomy (`config/applications.json`) stays with the instance: a content repo carrying cases for an application the instance does not know about must add that application first.
 
 **Numbering.** The same per-app sequence mechanism as issues — per-file async mutex plus atomic tmp+rename write — with extra counter keys:
 
@@ -647,11 +670,19 @@ The only change to an existing entity remains two optional fields on `Issue`.
 
 - **CI triggering.** A webhook or CLI (`checkpoint run --suite SUITE-CHR-1 --env ci`) so pipelines create runs directly, plus a status badge back to the commit.
 - **Scheduled runs.** Nightly regression suites without a person pressing launch.
-- **Parallel dispatch.** Currently sequential by default; per-runner parallelism needs a concurrency cap and interleaved log handling.
+- **Parallel dispatch.** Runners execute one at a time. Parallelism would need a concurrency cap, interleaved log handling, and a way to declare which suites may safely overlap — the run lock exists precisely because most cannot.
+- **Cross-instance run lock.** The lock is process-local, which matches the single-instance deployment; a second instance sharing a content root would not see it.
 - **Flake quarantine.** Auto-tagging a case as quarantined after N flips, excluded from pass rate until reviewed.
 - **Requirements traceability.** Whether to link cases upward to a release or epic as well as to a parent issue.
-- **Retention.** How long to keep raw reports and artifacts under `/data/reports/` before pruning.
+- **Retention.** How long to keep raw reports and artifacts under `reports/` before pruning.
+- **Preconditions as data.** Suite tags such as `destructive:db-reset` or `requires:seed` are convention today — surfaced to a person, not enforced by the launcher.
 - **Naming.** *Checkpoint*, *IssueDesk*, route prefixes and runner ids are all placeholders and rename-able.
+
+### Resolved since the first draft
+
+- **Content root** — `CHECKPOINT_DATA_DIR` gives `tests/`, `suites/`, `runs/`, `runners.json` and `reports/` their own base, so test content can live in a git-versioned repo of its own while the issue tracker's data stays where it is (§9).
+- **Long-running runs** — dispatch moved to the background with per-invocation persistence and explicit run states (§8.2).
+- **One runner per kind** — replaced by per-runner grouping (§8.1).
 
 ---
 

@@ -48,6 +48,7 @@ export const REPORT_FORMAT_LABEL: Record<ReportFormat, string> = {
 	'vitest-json': 'vitest-json',
 	'pytest-json': 'pytest-json',
 	tap: 'TAP',
+	'checkpoint-json': 'checkpoint-json',
 	'exit-code': 'exit-code + TAP stdout',
 	'visual-diff': 'playwright-json + diff manifest',
 	custom: 'custom'

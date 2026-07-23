@@ -7,6 +7,7 @@
 	import { toast } from '$lib/stores/toasts.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 	import KindBadge from '$lib/components/checkpoint/KindBadge.svelte';
+	import SuiteTags from '$lib/components/checkpoint/SuiteTags.svelte';
 	import SuiteEditor from '$lib/components/checkpoint/SuiteEditor.svelte';
 
 	let { data } = $props();
@@ -54,6 +55,7 @@
 								</div>
 								<div class="suite-name">{s.name}</div>
 								{#if s.description}<div class="suite-desc">{s.description}</div>{/if}
+								{#if s.tags.length}<div style="margin-top:8px"><SuiteTags tags={s.tags} compact /></div>{/if}
 							</a>
 							<div class="suite-bd">
 								<div class="suite-kinds">

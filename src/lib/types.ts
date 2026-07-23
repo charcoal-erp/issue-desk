@@ -174,6 +174,7 @@ export const REPORT_FORMATS = [
 	'vitest-json', // Vitest / Jest JSON reporters
 	'pytest-json',
 	'tap', // shell scripts emitting TAP on stdout
+	'checkpoint-json', // the normalized entry shape itself, for converter scripts
 	'exit-code', // shell scripts with no structured output
 	'visual-diff', // playwright-json plus an image-diff manifest
 	'custom' // user-supplied parser module

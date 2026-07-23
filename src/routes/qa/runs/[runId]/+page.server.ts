@@ -9,6 +9,7 @@ function actor(cookies: { get(name: string): string | undefined }): string {
 }
 import { runCounts, runPassRate } from '$lib/server/checkpoint/metrics';
 import { PENDING_NOTE } from '$lib/server/checkpoint/dispatch';
+import { isRunActive } from '$lib/server/checkpoint/runtime';
 import { resultToIssueInput } from '$lib/server/checkpoint/toIssue';
 import { timeAgo } from '$lib/checkpoint/meta';
 import { RESULT_STATUSES, type CaseResult, type ResultStatus, type TestKind } from '$lib/types';
@@ -59,6 +60,20 @@ export const load: PageServerLoad = async ({ params }) => {
 
 	const failingCount = run.results.filter((r) => r.status === 'fail' || r.status === 'blocked').length;
 
+	/**
+	 * A run without `completedAt` is running, waiting on a person, or was
+	 * interrupted by a restart — only the live registry can tell them apart,
+	 * and conflating them is how runs sit "in progress" forever.
+	 */
+	const pendingManual = run.results.some((r) => r.notes === PENDING_NOTE);
+	const state = run.completedAt
+		? 'complete'
+		: isRunActive(run.id)
+			? 'running'
+			: pendingManual
+				? 'awaiting-manual'
+				: 'interrupted';
+
 	return {
 		run: {
 			id: run.id,
@@ -68,7 +83,8 @@ export const load: PageServerLoad = async ({ params }) => {
 			when: timeAgo(run.startedAt, now),
 			counts: runCounts(run),
 			passRate: runPassRate(run),
-			completed: !!run.completedAt
+			completed: !!run.completedAt,
+			state
 		},
 		groups,
 		manualRows,

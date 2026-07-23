@@ -218,11 +218,83 @@ export function parseTap(text: string): ReportEntry[] {
 	return entries;
 }
 
+// ---------- checkpoint-json ----------
+/**
+ * The normalized entry shape itself, as a format any tool can emit.
+ *
+ * Suites whose native output no adapter understands — a bespoke JSON summary,
+ * a workflow harness's own schema — are converted by a small script that lives
+ * with the suite, and Checkpoint ingests the result without learning anything
+ * project-specific. This is the escape hatch that keeps the adapters generic.
+ *
+ * Accepts a bare array or an object wrapping one under `results` / `entries` /
+ * `tests`, and tolerates the usual status spellings. A status it cannot read
+ * becomes `skipped` — never a silent pass.
+ */
+const CHECKPOINT_STATUS: Record<string, ResultStatus> = {
+	pass: 'pass',
+	passed: 'pass',
+	ok: 'pass',
+	success: 'pass',
+	succeeded: 'pass',
+	fail: 'fail',
+	failed: 'fail',
+	failure: 'fail',
+	error: 'fail',
+	errored: 'fail',
+	blocked: 'blocked',
+	skip: 'skipped',
+	skipped: 'skipped',
+	pending: 'skipped',
+	todo: 'skipped'
+};
+
+function strOrNull(v: unknown): string | null {
+	if (v === null || v === undefined) return null;
+	const s = String(v).trim();
+	return s || null;
+}
+
+function parseCheckpointJson(content: string): ReportEntry[] {
+	const data = JSON.parse(content);
+	const rows: unknown[] = Array.isArray(data)
+		? data
+		: ((data?.results ?? data?.entries ?? data?.tests ?? []) as unknown[]);
+	const entries: ReportEntry[] = [];
+	for (const raw of rows) {
+		if (!raw || typeof raw !== 'object') continue;
+		const row = raw as Record<string, unknown>;
+		const identifier = strOrNull(
+			row.identifier ?? row.id ?? row.testId ?? row.name ?? row.test ?? row.testName
+		);
+		if (!identifier) continue;
+		const aliases = Array.isArray(row.aliases)
+			? row.aliases.map((a) => String(a)).filter(Boolean)
+			: undefined;
+		const duration = row.durationMs ?? row.duration_ms ?? row.durationMillis;
+		const artifacts = Array.isArray(row.artifacts)
+			? row.artifacts.map((a) => String(a)).filter(Boolean)
+			: [];
+		entries.push({
+			identifier,
+			aliases: aliases?.length ? aliases : undefined,
+			status: CHECKPOINT_STATUS[String(row.status ?? '').toLowerCase()] ?? 'skipped',
+			durationMs: typeof duration === 'number' && Number.isFinite(duration) ? duration : null,
+			message: firstLine(strOrNull(row.message ?? row.notes ?? row.summary)),
+			stack: strOrNull(row.stack ?? row.details ?? row.output),
+			artifacts,
+			flaky: row.flaky === true ? true : undefined
+		});
+	}
+	return entries;
+}
+
 // ---------- dispatch ----------
 /**
  * Parse raw report content into normalized entries. `exit-code` and `custom`
  * are not content parsers — exit-code is applied at execution time against the
- * mapped case list, and custom is a user-supplied module (out of scope for v1).
+ * mapped case list, and custom is a user-supplied module (out of scope for v1;
+ * `checkpoint-json` covers the same need without loading foreign code).
  */
 export function parseReport(format: ReportFormat, content: string): ReportEntry[] {
 	try {
@@ -238,6 +310,8 @@ export function parseReport(format: ReportFormat, content: string): ReportEntry[
 				return parsePytestJson(content);
 			case 'tap':
 				return parseTap(content);
+			case 'checkpoint-json':
+				return parseCheckpointJson(content);
 			case 'exit-code':
 			case 'custom':
 				return [];
