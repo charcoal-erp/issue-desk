@@ -28,6 +28,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			name: s.name,
 			description: s.description,
 			defaultEnv: s.defaultEnv,
+			tags: s.tags,
 			kinds,
 			total: cases.length,
 			manual,

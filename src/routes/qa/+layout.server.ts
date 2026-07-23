@@ -19,7 +19,9 @@ export const load: LayoutServerLoad = async () => {
 			id: s.id,
 			appName: s.appName,
 			name: s.name,
+			description: s.description,
 			defaultEnv: s.defaultEnv,
+			tags: s.tags,
 			caseCount: cases.length,
 			kinds,
 			kindCounts: Object.fromEntries(

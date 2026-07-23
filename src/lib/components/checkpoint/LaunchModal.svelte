@@ -7,6 +7,7 @@
 	import { toast } from '$lib/stores/toasts.svelte';
 	import Icon from '../Icon.svelte';
 	import KindBadge from './KindBadge.svelte';
+	import SuiteTags from './SuiteTags.svelte';
 
 	interface GroupRef {
 		runnerId: string;
@@ -22,6 +23,8 @@
 		id: string;
 		appName: string;
 		name: string;
+		description?: string;
+		tags: string[];
 		defaultEnv: SuiteEnvironment;
 		caseCount: number;
 		kinds: TestKind[];
@@ -199,6 +202,20 @@
 							{/if}
 						</div>
 
+						{#if suite.tags.length}
+							<div class="field">
+								<!-- svelte-ignore a11y_label_has_associated_control -->
+								<label>
+									Before you start
+									{#if suite.tags.some((t) => t.startsWith('destructive:'))}
+										<span class="hint" style="color:#a52019">· this suite destroys data</span>
+									{/if}
+								</label>
+								<SuiteTags tags={suite.tags} />
+								{#if suite.description}<div class="lm-desc">{suite.description}</div>{/if}
+							</div>
+						{/if}
+
 						<div class="field">
 							<!-- svelte-ignore a11y_label_has_associated_control -->
 							<label>What will happen</label>
@@ -223,6 +240,12 @@
 {/if}
 
 <style>
+	.lm-desc {
+		margin-top: 7px;
+		font-size: 12.5px;
+		line-height: 1.5;
+		color: var(--muted);
+	}
 	.health-row :global(.chk-tick) {
 		width: 11px;
 		height: 11px;
