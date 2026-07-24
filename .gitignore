@@ -22,6 +22,8 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# Runtime data + archives (repo-root only — src/**/data must stay trackable)
+# The live issue dataset — shared with nothing, never committed. issue-desk
+# points at it via DATA_DIR=../data.
 /data
+/backups
 /backups

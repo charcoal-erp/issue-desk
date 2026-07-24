@@ -91,12 +91,13 @@ Separately, **a bare `.env` file is not enough** to get a variable into `process
 
 | Var | Default | Purpose |
 |---|---|---|
-| `DATA_DIR` | `./data` | Root of all config / issues / uploads |
+| `DATA_DIR` | `../data` | Root of all config / issues / uploads (dev data sits at the repo root) |
 | `PUBLIC_BASE_URL` | `http://localhost:5173` | Host used to absolutise attachment URLs in exports |
 | `MAX_UPLOAD_MB` | `15` | Per-file size cap |
 | `MAX_ATTACHMENTS` | `10` | Per-issue attachment cap |
-| `WATCH_FILES` | `false` | Re-sync the store when data files are edited by hand |
-| `CHECKPOINT_DATA_DIR` | `DATA_DIR` | Separate root for Checkpoint content (tests/suites/runs/runners.json/reports); unset = combined root as before |
+| `WATCH_FILES` | `false` | Re-sync the store when config / issue files are edited by hand |
+| `CHECKPOINT_URL` | _(unset)_ | Optional Checkpoint base URL for the "view test case" back-link |
+| `ISSUEDESK_INGEST_TOKEN` | _(unset)_ | Optional bearer token required on `POST /api/issues` |
 | `PORT` | `3000` | adapter-node port |
 | `BODY_SIZE_LIMIT` | `512K` | adapter-node request-body cap. Raise it (e.g. `512M`, or `Infinity`) or `POST /api/data/import` and attachment uploads larger than 512 KB will be rejected before the app sees them |
 
