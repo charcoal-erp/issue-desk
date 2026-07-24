@@ -1,0 +1,1 @@
+import{$ as e,D as t,T as n,et as r,z as i}from"../chunks/D9VBEBf0.js";import"../chunks/xihTtKlq.js";import{a}from"../chunks/DMFFKMry.js";var o=t(`<section class="screen"></section>`);function s(t,s){r(s,!0),i(()=>{a(s.data.issue)}),n(t,o()),e()}export{s as component};

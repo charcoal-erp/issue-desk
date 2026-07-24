@@ -1,0 +1,1 @@
+import{t as e}from"./BQTPcRDI.js";async function t(t,n){let r=new FormData;for(let[e,t]of Object.entries(n))r.set(e,t);return e(await(await fetch(`/?/${t}`,{method:`POST`,body:r,headers:{"x-sveltekit-action":`true`}})).text())}export{t};

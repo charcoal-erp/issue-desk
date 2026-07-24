@@ -1,0 +1,7 @@
+import{$ as e,D as t,G as n,N as r,R as i,T as a,U as o,Y as s,et as c,f as l,p as u,rt as d,w as f}from"./D9VBEBf0.js";import"./xihTtKlq.js";import{i as p,n as m}from"./CYy69s-7.js";function h(e,t){if(t)return e.users.find(e=>e.id===t)?.name??t}function g(e,t){return t.startsWith(`/`)?e+t:t}function _(e,t){let n=`## ${e.id} · [${p[e.priority].label.toUpperCase()}] ${e.title}\n\n`;return n+=`| | |
+|---|---|
+`,n+=`| **App / Module** | ${e.appName} / ${e.moduleName} |\n`,n+=`| **Page / Form**  | ${e.pagePath||e.pageName||`—`}${e.formName?` · `+e.formName:``} |\n`,n+=`| **Type**         | ${e.type===`bug`?`Bug`:`Feature`} |\n`,n+=`| **Status**       | ${m[e.status].label} |\n`,n+=`| **Reporter**     | ${h(t,e.reporterId)} |\n\n`,n+=`**Description**\n${e.description}\n\n`,e.attachments.length&&(n+=`**Attachments**
+`+e.attachments.map(e=>`- ${g(t.baseUrl,e.url)}`).join(`
+`)+`
+
+`),n}function v(e,t,n){return _(e,{baseUrl:n,generatedAt:new Date,filter:{},apps:[],users:t}).trim()}var y=t(`<span><span class="status-dot"></span> </span>`);function b(t,p){c(p,!0);let h=s(()=>m[p.status]);var g=y(),_=o(g),v=n(_,1,!0);d(g),i(()=>{u(g,1,`status-badge ${r(h).badgeClass??``}`),l(_,`background:${r(h).color??``}`),f(v,r(h).label)}),a(t,g),e()}export{v as n,b as t};

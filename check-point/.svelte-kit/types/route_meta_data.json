@@ -1,0 +1,43 @@
+{
+	"/": [
+		"src/routes/+page.server.ts",
+		"src/routes/+layout.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/api/export/cases": [
+		"src/routes/api/export/cases/+server.ts"
+	],
+	"/api/export/failures": [
+		"src/routes/api/export/failures/+server.ts"
+	],
+	"/api/import/cases": [
+		"src/routes/api/import/cases/+server.ts"
+	],
+	"/cases": [
+		"src/routes/cases/+page.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/runners": [
+		"src/routes/runners/+page.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/runs": [
+		"src/routes/runs/+page.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/runs/launch": [
+		"src/routes/runs/launch/+server.ts"
+	],
+	"/runs/[runId]": [
+		"src/routes/runs/[runId]/+page.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/search": [
+		"src/routes/search/+page.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/suites": [
+		"src/routes/suites/+page.server.ts",
+		"src/routes/+layout.server.ts"
+	]
+}

@@ -1,0 +1,44 @@
+{
+	"/": [
+		"src/routes/+page.server.ts",
+		"src/routes/+layout.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/admin": [
+		"src/routes/admin/+page.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/api/data/export": [
+		"src/routes/api/data/export/+server.ts"
+	],
+	"/api/data/import": [
+		"src/routes/api/data/import/+server.ts"
+	],
+	"/api/export": [
+		"src/routes/api/export/+server.ts"
+	],
+	"/api/files/[...path]": [
+		"src/routes/api/files/[...path]/+server.ts"
+	],
+	"/api/issues": [
+		"src/routes/api/issues/+server.ts"
+	],
+	"/api/issues/[id]": [
+		"src/routes/api/issues/[id]/+server.ts"
+	],
+	"/api/uploads": [
+		"src/routes/api/uploads/+server.ts"
+	],
+	"/board": [
+		"src/routes/board/+page.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/issues/[id]": [
+		"src/routes/issues/[id]/+page.server.ts",
+		"src/routes/+layout.server.ts"
+	],
+	"/metrics": [
+		"src/routes/metrics/+page.server.ts",
+		"src/routes/+layout.server.ts"
+	]
+}
