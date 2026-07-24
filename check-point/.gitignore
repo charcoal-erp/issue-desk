@@ -22,8 +22,9 @@ Thumbs.db
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
 
-# The live issue dataset — shared with nothing, never committed. issue-desk
-# points at it via DATA_DIR=../data.
+# Local runtime data + archives, if pointed inside the app
 /data
 /backups
-/backups
+
+# Checkpoint content, if seeded locally rather than pointed at a content repo
+/checkpoint-data
