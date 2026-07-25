@@ -1,1 +1,0 @@
-import{q as e}from"./CWVI4aQF.js";var t=e({launch:null,failures:null});function n(e=null){t.launch={suiteId:e}}function r(){t.launch=null}function i(e){t.failures=e}function a(){t.failures=null}export{n as a,i,r as n,t as r,a as t};

@@ -1,1 +1,0 @@
-import{q as e}from"./CWVI4aQF.js";import"./BVQvSoG6.js";var t=1,n=e([]),r=2600,i=300;function a(){return n}function o(e,i){let a=t++;n.push({id:a,title:e,sub:i,out:!1}),setTimeout(()=>s(a),r)}function s(e){let t=n.find(t=>t.id===e);!t||t.out||(t.out=!0,setTimeout(()=>{let t=n.findIndex(t=>t.id===e);t>=0&&n.splice(t,1)},i))}export{o as n,a as r,s as t};
