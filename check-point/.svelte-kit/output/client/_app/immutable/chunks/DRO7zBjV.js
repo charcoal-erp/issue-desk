@@ -1,1 +1,0 @@
-import{E as e,O as t,P as n,X as r,h as i,nt as a,rt as o,z as s}from"./CWVI4aQF.js";import"./xihTtKlq.js";import{a as c}from"./BEQbAcRU.js";var l=t(`<span></span>`);function u(t,u){o(u,!0);let d=r(()=>u.status===`none`?`rd-none`:c[u.status].cls);var f=l();s(()=>i(f,1,`res-dot ${n(d)??``}`)),e(t,f),a()}export{u as t};

@@ -1,1 +1,0 @@
-function e(e){return Object.values(e).some(e=>e!==``)}export{e as t};

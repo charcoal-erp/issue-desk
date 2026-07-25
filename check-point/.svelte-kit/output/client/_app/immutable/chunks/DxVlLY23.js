@@ -1,1 +1,0 @@
-var e=[`unit`,`api`,`e2e`,`visual`,`shell`,`manual`],t=[`active`,`draft`,`deprecated`],n=[`junit-xml`,`playwright-json`,`vitest-json`,`pytest-json`,`tap`,`checkpoint-json`,`exit-code`,`visual-diff`,`custom`],r=[`python`,`node`,`bash`,`other`],i=[`local`,`ci`,`staging`,`prod`];export{e as a,t as i,r as n,i as r,n as t};

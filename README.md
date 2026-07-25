@@ -1,45 +1,128 @@
-# Platform Quality — IssueDesk + Checkpoint
+# IssueDesk
 
-Two **entirely separate, independently-deployable** applications for platform quality
-management. They share no code. They live in one repository for convenience, but each has its
-own `package.json`, dependencies, build and deploy, and either runs with the other absent.
+A file-backed bug reporting & feature-request tool for QA, dev-testers and stakeholders —
+optimised for one workflow above all others: **filter a set of issues, then export them as a
+ready-to-paste prompt for a Claude Code session.**
 
-| App | Folder | What it is | Runs |
-|---|---|---|---|
-| **IssueDesk** | [`issue-desk/`](issue-desk/) | The central bug & feature tracker — one source of truth for all issues, with export straight into a Claude Code session. | One shared instance for everyone. |
-| **Checkpoint** | [`check-point/`](check-point/) | Test management — author test cases, group them into suites, run manual or automated runs, and turn failures into a Claude Code prompt. | Per test machine / developer / environment, pointed at a git-versioned content repo. |
+Built with **TypeScript · Svelte 5 (runes) · SvelteKit (adapter-node)**. No database, no auth:
+reference data and issues live in human-readable JSON files under `data/`, uploads live on the
+local filesystem behind stable public URLs, and everything is served from an in-memory
+write-through store. See [docs/IssueDesk-Design-Document.md](docs/IssueDesk-Design-Document.md)
+for the full design, and [DEPLOYMENT.md](DEPLOYMENT.md) for exposing a custom domain, running in
+production, and starting the app on boot via systemd.
 
-## Why two apps
-
-IssueDesk is a **central source of truth**: one instance, reached by everyone, holding the
-canonical list of issues. Checkpoint is **distributed**: it runs on many test machines, for
-many developers, across many environments, against whatever content repo that box is testing.
-Governing both from one process and one deploy fought both roles — a Checkpoint on a test box
-should not depend on the tracker being in the same process, and updating one should not force a
-redeploy of the other. So they are two apps.
-
-## The optional link between them
-
-Their one relationship — filing a bug from a failure, and resolving issue links — is an
-**optional HTTP integration**, never an in-process call:
-
-- Set `ISSUEDESK_URL` in Checkpoint and its "file a bug" button POSTs to IssueDesk's
-  `/api/issues`, issue references resolve to real titles, and the parent-issue picker is
-  populated. Leave it unset and Checkpoint is fully standalone — those affordances hide and
-  failures still export as a Claude Code prompt.
-- Optionally set `CHECKPOINT_URL` in IssueDesk to link an issue filed from a test back to its
-  case in Checkpoint, and `ISSUEDESK_INGEST_TOKEN` to require a bearer token on issue creation.
-
-## Running each
+## Run
 
 ```bash
-# IssueDesk — the tracker
-cd issue-desk && npm install && npm run dev     # http://localhost:5173  (DATA_DIR=../data)
-
-# Checkpoint — test management (separate terminal)
-cd check-point && npm install && npm run dev    # http://localhost:5174
+npm install
+npm run dev        # dev server on http://localhost:5173
 ```
 
-Each app's own `README.md` and `DEPLOYMENT.md` cover it in full. The live issue dataset lives
-at [`data/`](data/) in the repo root, shared with nothing; IssueDesk points at it via
-`DATA_DIR`.
+On first run, an empty `DATA_DIR` is seeded with **reference data only** — five
+applications (Charcoal, Chattr, Coffee-ops, Relay, Drishti), their modules, and four users
+(Kiran Kharade, Anant Kharade, Aadinath Kharade, Tushar Kulange). Any user can be a reporter;
+only users marked **assignable** (Kiran, Tushar) appear in the assignee dropdown. **No issues
+are seeded** — create them in the app. Everything under `data/` is real data, not disposable
+fixtures; back it up with `npm run backup:data`, and note the automatic rotating snapshots the
+server writes to `data/.backups/` on each boot (see [Backups](#backups)).
+
+Production:
+
+```bash
+npm run build
+node build         # adapter-node server on PORT (default 3000)
+```
+
+For exposing a custom domain, loading `.env` into `node build`, and running IssueDesk as a
+systemd service that starts on boot, see [DEPLOYMENT.md](DEPLOYMENT.md).
+
+## Relationship to Checkpoint
+
+Checkpoint (test management) is a **separate application in its own repository** — it shares no
+code with IssueDesk and is deployed independently, per test machine / environment.
+
+The one link is optional and one-directional over HTTP. Checkpoint files bugs into IssueDesk
+through the JSON API below when its `ISSUEDESK_URL` points here. IssueDesk needs nothing to
+receive them, but two optional settings sweeten the link:
+
+- `CHECKPOINT_URL` — when set, an issue filed from a test shows a "view test case" link into
+  that Checkpoint instance.
+- `ISSUEDESK_INGEST_TOKEN` — when set, `POST /api/issues` requires it as a bearer token, so
+  only a trusted Checkpoint (or the simulators) can file issues.
+
+## Screens
+
+- **Issues** — filter rail (app / status / priority / type), free-text search, sortable table,
+  filter chips. Filters live in the URL, so any view is shareable.
+- **New / Edit issue** — dependent App → Module dropdowns; Page and Form are free-text
+  inputs (not seeded taxonomy); priority pip picker, status picker, drag-and-drop attachments
+  (PNG/JPG/WEBP/GIF/PDF, validated server-side).
+- **Detail drawer** — rendered Markdown, attachment gallery with public URLs, activity
+  timeline, quick status advance, per-issue *Copy for Claude Code*.
+- **Board** — Open / Implemented / Complete columns; drag a card to change status.
+- **Metrics** — stat cards, open-by-application and by-priority bars, recent activity.
+- **Config** — edit users and applications; writes back to `data/config/*.json`.
+- **Export** — the current filter as Markdown (a templated Claude Code fix-batch prompt) or
+  JSON, with one-click copy and download. `GET /api/export?format=md|json&<filter>`.
+
+## Configuration
+
+| Var | Default | Purpose |
+|---|---|---|
+| `DATA_DIR` | `./data` | Root of all config / issues / uploads |
+| `PUBLIC_BASE_URL` | `http://localhost:5173` | Host used to absolutise attachment URLs in exports |
+| `MAX_UPLOAD_MB` | `15` | Per-file size cap |
+| `MAX_ATTACHMENTS` | `10` | Per-issue attachment cap |
+| `WATCH_FILES` | `false` | Re-sync the store when config / issue files are edited by hand |
+| `CHECKPOINT_URL` | _(unset)_ | Optional — base URL of a Checkpoint instance, for the "view test case" back-link on issues filed from a test |
+| `ISSUEDESK_INGEST_TOKEN` | _(unset)_ | Optional — when set, `POST /api/issues` requires this bearer token |
+| `DATA_SNAPSHOTS` | `true` | Write a rotating boot snapshot of the JSON data to `data/.backups/` |
+| `DATA_SNAPSHOT_KEEP` | `10` | How many boot snapshots to retain |
+| `PORT` | `3000` | adapter-node port |
+
+## Data layout
+
+```
+data/                  # DATA_DIR — the issue tracker's data
+├── config/            users.json · applications.json · settings.json
+├── issues/<app>/      _sequence.json (per-app counter) · <module>.json (Issue[])
+└── uploads/<app>/<issueId>/  attachments, served at /api/files/<app>/<issueId>/<file>
+```
+
+Issue IDs are per-application (`CHR-14`). Storage files are per-module. The whole `data/`
+directory is self-contained — zip it, commit it, or rsync it to move the system. (Checkpoint's
+content is a separate app with its own data root; nothing test-related is stored here.)
+
+## Backups
+
+The `data/` files are the database. Two safety nets protect them:
+
+- **Automatic boot snapshots.** On every server start, the small structured data (config +
+  all issue JSON) is copied to a rotating restore point under `data/.backups/<ts>/`
+  (last 10 kept; `DATA_SNAPSHOTS=false` to disable, `DATA_SNAPSHOT_KEEP` to tune). `.backups`
+  is outside every reader and the watcher, so it never feeds back into the store. To restore,
+  copy a snapshot's folders back over `data/` and restart.
+- **On-demand full archive.** `npm run backup:data` tars all of `data/` (uploads included) to
+  `backups/data-<timestamp>.tar.gz`.
+- **In-app export / import** (Admin → Data, or the API). `GET /api/data/export` downloads a
+  single zip with every issue across all applications — full details, activity, sequence
+  counters, config and all attachment binaries (Checkpoint content excluded). `POST
+  /api/data/import` (multipart field `file`, or a raw zip body) validates the archive, moves
+  the current `config/` + `issues/` + `uploads/` to `data/.backups/pre-import-<ts>/`, extracts
+  the snapshot and reloads the running app. Curl-friendly:
+  `curl -o ~/issuedesk-data.zip http://localhost:3000/api/data/export`.
+
+> **Testing tip:** never run the app against `./data` for throwaway experiments and never
+> `rm` a `data/` subdirectory blindly — point `DATA_DIR` at a scratch dir instead
+> (`DATA_DIR=/tmp/scratch npm run preview`). If you must delete Checkpoint data, remove only
+> `data/tests`, `data/suites`, `data/runs`, `data/reports`, `data/runners.json`.
+
+## Tests
+
+```bash
+npm test           # vitest: store filtering/sequencing, export generators, upload validation
+npm run check      # svelte-check, strict TS
+```
+
+IssueDesk is a single-instance, trusted-network tool by design — deploy it behind a VPN or an
+authenticating reverse proxy.
