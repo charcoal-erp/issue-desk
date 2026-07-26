@@ -45,7 +45,7 @@
 			<h1>Board</h1>
 			<span class="count">{data.total} {data.total === 1 ? 'issue' : 'issues'}</span>
 			<div style="flex:1"></div>
-			<a class="btn btn-ghost btn-sm" href="/">
+			<a class="btn btn-ghost btn-sm" href="/issues">
 				<Icon name="rows" />
 				Table view
 			</a>

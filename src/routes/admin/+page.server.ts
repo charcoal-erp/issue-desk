@@ -2,7 +2,10 @@ import { fail } from '@sveltejs/kit';
 import type { Actions, PageServerLoad } from './$types';
 import { applicationSchema, moduleRefSchema, userSchema } from '$lib/schemas';
 import { z } from 'zod';
+import { PROVIDER_META } from '$lib/types';
 import * as store from '$lib/server/store';
+import { isVaultReady, removeKey, setKey, recordTest, status } from '$lib/server/security/vault';
+import { testKey, AiError } from '$lib/server/ai/client';
 
 export const load: PageServerLoad = async () => {
 	await store.ensureLoaded();
@@ -20,7 +23,12 @@ export const load: PageServerLoad = async () => {
 			perUser[issue.assigneeId].assigned += 1;
 		}
 	}
-	return { perApp, perUser };
+	return {
+		perApp,
+		perUser,
+		keyStatus: await status('anthropic'),
+		vaultReady: isVaultReady()
+	};
 };
 
 export const actions: Actions = {
@@ -71,5 +79,38 @@ export const actions: Actions = {
 		}
 		await store.upsertApplication(parsed.data);
 		return { saved: parsed.data.id };
+	},
+
+	// ---- Generative AI key (Anthropic) ----
+	setKey: async ({ request }) => {
+		const form = await request.formData();
+		const key = String(form.get('apiKey') || '').trim();
+		if (!key) return fail(400, { message: 'Paste an API key first.' });
+		try {
+			const view = await setKey('anthropic', key);
+			return { keySaved: true, view };
+		} catch (e) {
+			return fail(400, { message: (e as Error).message });
+		}
+	},
+
+	removeKey: async () => {
+		await removeKey('anthropic');
+		return { keyRemoved: true };
+	},
+
+	testKey: async () => {
+		const { getKeyForRequest } = await import('$lib/server/security/vault');
+		const key = await getKeyForRequest('anthropic');
+		if (!key) return fail(400, { message: 'No key to test — add one first.' });
+		try {
+			await testKey(key, PROVIDER_META.anthropic.fastModel);
+			await recordTest('anthropic', true);
+			return { keyTested: true };
+		} catch (e) {
+			const msg = e instanceof AiError ? e.message : (e as Error).message;
+			await recordTest('anthropic', false, msg);
+			return fail(400, { message: msg });
+		}
 	}
 };

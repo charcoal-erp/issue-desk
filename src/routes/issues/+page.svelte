@@ -22,7 +22,7 @@
 
 	function navigate(patch: Partial<IssueFilter>, replace = false) {
 		const next: IssueFilter = { ...data.filter, ...patch };
-		goto(`/?${filterToParams(next)}`, { keepFocus: true, noScroll: true, replaceState: replace });
+		goto(`/issues?${filterToParams(next)}`, { keepFocus: true, noScroll: true, replaceState: replace });
 	}
 
 	function onQuickInput() {
@@ -32,7 +32,7 @@
 
 	function clearAll() {
 		quick = '';
-		goto('/', { keepFocus: true, noScroll: true });
+		goto('/issues', { keepFocus: true, noScroll: true });
 	}
 
 	function sortBy(key: NonNullable<IssueFilter['sort']>) {

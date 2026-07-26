@@ -22,6 +22,15 @@
 	let dragover = $state(false);
 	let uploading = $state(false);
 
+	const KIND_LABELS: Record<Attachment['kind'], string> = {
+		image: 'Image',
+		pdf: 'PDF',
+		doc: 'Word doc',
+		archive: 'ZIP',
+		html: 'HTML'
+	};
+	const kindLabel = (k: Attachment['kind']) => KIND_LABELS[k] ?? 'File';
+
 	// Client-only component, so no hydration mismatch to worry about.
 	const pasteKey = /Mac|iPhone|iPad/.test(navigator.userAgent) ? '⌘' : 'Ctrl';
 
@@ -108,7 +117,7 @@
 	bind:this={input}
 	type="file"
 	multiple
-	accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+	accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,text/html,application/zip,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,.html,.zip,.doc,.docx"
 	style="display:none"
 	onchange={(e) => {
 		const files = e.currentTarget.files;
@@ -133,7 +142,7 @@
 			{/if}
 			<div class="fmeta">
 				<div class="fn">{att.filename}</div>
-				<div class="fs">{fmtSize(att.size)} · {att.kind === 'image' ? 'Image' : 'PDF'}</div>
+				<div class="fs">{fmtSize(att.size)} · {kindLabel(att.kind)}</div>
 			</div>
 			<button type="button" class="frm" aria-label="Remove {att.filename}" onclick={() => remove(att)}>
 				<Icon name="x-sm" />

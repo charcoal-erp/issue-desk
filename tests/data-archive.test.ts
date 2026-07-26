@@ -90,6 +90,26 @@ describe('buildDataExport', () => {
 		);
 	});
 
+	it('skips a corrupt collected file and continues, recording it in the manifest', async () => {
+		const issue = await createIssueWithUpload();
+		// A corrupt JSON sidecar that collectFiles picks up but that fails to parse
+		// — it must be excluded (not silently poison a later import) while the rest
+		// of the snapshot, including the real binary, still exports.
+		const badName = `uploads/charcoal/${issue.id}/broken.json`;
+		await writeFile(path.join(dir, ...badName.split('/')), '{ this is not: valid json,');
+
+		const { zip, manifest } = await buildDataExport();
+		const names = Object.keys(unzipSync(zip));
+
+		expect(names).not.toContain(badName);
+		expect(manifest.skipped.map((s) => s.name)).toContain(badName);
+		expect(manifest.skipped[0].reason).toMatch(/invalid JSON/);
+		// The real upload and issue data are unaffected.
+		expect(names).toContain(`uploads/charcoal/${issue.id}/shot.png`);
+		expect(names).toContain('issues/charcoal/accounting.json');
+		expect(manifest.counts.issues).toBe(1);
+	});
+
 	it('excludes _pending drafts and .tmp intermediates', async () => {
 		await createIssueWithUpload();
 		await mkdir(path.join(dir, 'uploads', 'charcoal', '_pending', 'draft-1'), { recursive: true });

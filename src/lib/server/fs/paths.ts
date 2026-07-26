@@ -40,6 +40,20 @@ export function pendingDir(appId: string, draftId: string): string {
 	return path.join(uploadsDir(appId), '_pending', draftId);
 }
 
+/** Encrypted provider-key store (§ AI). Kept out of exports and git-ignored. */
+export function vaultDir(): string {
+	return path.join(dataDir(), 'vault');
+}
+
+export function credentialFile(provider: string): string {
+	return path.join(vaultDir(), `${provider}.json`);
+}
+
+/** Base64 32-byte AES key encrypting the vault. Unset = writes refused. */
+export function keyEncryptionKey(): string | undefined {
+	return env.KEY_ENCRYPTION_KEY || undefined;
+}
+
 export function maxUploadBytes(): number {
 	return (Number(env.MAX_UPLOAD_MB) || 15) * 1024 * 1024;
 }

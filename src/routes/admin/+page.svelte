@@ -9,7 +9,7 @@
 
 	let { data } = $props();
 
-	let tab = $state<'apps' | 'users' | 'data'>('apps');
+	let tab = $state<'apps' | 'users' | 'data' | 'keys'>('apps');
 	let editor = $state<
 		| null
 		| { kind: 'user'; user: User | null }
@@ -22,6 +22,43 @@
 
 	let importInput = $state<HTMLInputElement | null>(null);
 	let importing = $state(false);
+	let exporting = $state(false);
+	let apiKey = $state('');
+	let savingKey = $state(false);
+	let testingKey = $state(false);
+
+	async function runExport() {
+		exporting = true;
+		try {
+			const res = await fetch('/api/data/export');
+			if (!res.ok) {
+				toast('Export failed', res.statusText);
+				return;
+			}
+			const skipped = Number(res.headers.get('x-export-skipped') ?? '0');
+			const blob = await res.blob();
+			const disposition = res.headers.get('content-disposition') ?? '';
+			const name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? 'issuedesk-data.zip';
+			const url = URL.createObjectURL(blob);
+			const a = document.createElement('a');
+			a.href = url;
+			a.download = name;
+			a.click();
+			URL.revokeObjectURL(url);
+			if (skipped > 0) {
+				toast(
+					'Export complete — with exclusions',
+					`${skipped} item(s) could not be read and were excluded. See "skipped" in the archive's manifest.json.`
+				);
+			} else {
+				toast('Export complete', 'Full snapshot downloaded.');
+			}
+		} catch (e) {
+			toast('Export failed', String((e as Error).message ?? e));
+		} finally {
+			exporting = false;
+		}
+	}
 
 	async function runImport() {
 		const file = importInput?.files?.[0];
@@ -75,15 +112,16 @@
 			<button class="admin-tab" class:on={tab === 'apps'} onclick={() => (tab = 'apps')}>Applications</button>
 			<button class="admin-tab" class:on={tab === 'users'} onclick={() => (tab = 'users')}>Users</button>
 			<button class="admin-tab" class:on={tab === 'data'} onclick={() => (tab = 'data')}>Data</button>
+			<button class="admin-tab" class:on={tab === 'keys'} onclick={() => (tab = 'keys')}>Keys</button>
 		</div>
 
 		{#if tab === 'data'}
 			<div class="admin-panel on">
 				<div class="admin-card-head">
 					<h3>Export snapshot</h3>
-					<a class="btn btn-primary btn-sm" href="/api/data/export" download>
-						<Icon name="download" />Export data (.zip)
-					</a>
+					<button class="btn btn-primary btn-sm" onclick={runExport} disabled={exporting}>
+						<Icon name="download" />{exporting ? 'Exporting…' : 'Export data (.zip)'}
+					</button>
 				</div>
 				<div class="data-card data-pad">
 					<p class="data-desc">
@@ -91,7 +129,9 @@
 						activity history, sequence counters, reference config (users, applications, settings)
 						and all attached <b>images &amp; documents</b>. Checkpoint content (test cases, suites,
 						runs, runners) is not included. Use it for backups or to move this instance's data to
-						another machine.
+						another machine. If any single file cannot be read, it is excluded and listed under
+						<b>skipped</b> in the archive's manifest.json — the rest still exports, and you'll be
+						warned here.
 					</p>
 				</div>
 
@@ -141,6 +181,120 @@
 							{/each}
 						</tbody>
 					</table>
+				</div>
+			</div>
+		{:else if tab === 'keys'}
+			<div class="admin-panel on">
+				<div class="admin-card-head">
+					<h3>Generative AI — Anthropic key</h3>
+				</div>
+				<div class="data-card data-pad">
+					<p class="data-desc">
+						Powers <b>description refinement</b> and <b>tag suggestions</b> in the issue editor.
+						The key is stored <b>encrypted</b> (AES-256-GCM) in <b>data/vault/anthropic.json</b>,
+						never in git and never included in a data export. Only a masked hint is shown here.
+					</p>
+
+					{#if !data.vaultReady}
+						<div class="admin-note" style="margin-bottom:14px">
+							<Icon name="warning" />
+							<span>
+								<b>KEY_ENCRYPTION_KEY is not set.</b> Generate one and set it in the environment
+								before saving a key:
+								<code>node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"</code>
+							</span>
+						</div>
+					{/if}
+
+					<div class="key-status">
+						<span
+							class="key-dot"
+							class:on={data.keyStatus.status === 'configured'}
+							class:err={data.keyStatus.status === 'error'}
+						></span>
+						{#if data.keyStatus.status === 'unset'}
+							<span>No key configured — AI features are disabled.</span>
+						{:else}
+							<span>
+								Key <b>{data.keyStatus.hint}</b>
+								<span class="key-src">({data.keyStatus.source === 'env' ? 'from ANTHROPIC_API_KEY' : 'in vault'})</span>
+								{#if data.keyStatus.status === 'error'}<span class="key-err">· last test failed</span>{/if}
+							</span>
+						{/if}
+					</div>
+					{#if data.keyStatus.lastError}
+						<div class="key-err-detail">{data.keyStatus.lastError}</div>
+					{/if}
+
+					<form
+						method="POST"
+						action="?/setKey"
+						use:enhance={() => {
+							savingKey = true;
+							return async ({ result }) => {
+								savingKey = false;
+								if (result.type === 'success') {
+									apiKey = '';
+									await invalidateAll();
+									toast('Key saved', 'Anthropic key stored (encrypted).');
+								} else if (result.type === 'failure') {
+									toast('Could not save key', String(result.data?.message ?? ''));
+								}
+							};
+						}}
+					>
+						<div class="key-row">
+							<input
+								class="inp"
+								type="password"
+								name="apiKey"
+								bind:value={apiKey}
+								placeholder={data.keyStatus.status === 'unset' ? 'sk-ant-…' : 'sk-ant-… (paste to rotate)'}
+								autocomplete="off"
+							/>
+							<button class="btn btn-primary btn-sm" type="submit" disabled={savingKey || !apiKey.trim()}>
+								<Icon name="key" />{savingKey ? 'Saving…' : data.keyStatus.status === 'unset' ? 'Save key' : 'Rotate key'}
+							</button>
+						</div>
+					</form>
+
+					{#if data.keyStatus.status !== 'unset'}
+						<div class="key-actions">
+							<form
+								method="POST"
+								action="?/testKey"
+								use:enhance={() => {
+									testingKey = true;
+									return async ({ result }) => {
+										testingKey = false;
+										await invalidateAll();
+										if (result.type === 'success') toast('Key works', 'A live call succeeded.');
+										else if (result.type === 'failure') toast('Test failed', String(result.data?.message ?? ''));
+									};
+								}}
+							>
+								<button class="btn btn-ghost btn-sm" type="submit" disabled={testingKey || data.keyStatus.source === 'env'}>
+									<Icon name="refresh" />{testingKey ? 'Testing…' : 'Test connection'}
+								</button>
+							</form>
+							{#if data.keyStatus.source === 'vault'}
+								<form
+									method="POST"
+									action="?/removeKey"
+									use:enhance={() => {
+										return async ({ result }) => {
+											if (result.type === 'success') {
+												await invalidateAll();
+												toast('Key removed', 'AI features are now disabled.');
+											}
+										};
+									}}
+								>
+									<button class="btn btn-ghost btn-sm" type="submit"><Icon name="trash" />Remove</button>
+								</form>
+							{/if}
+						</div>
+					{/if}
 				</div>
 			</div>
 		{:else}
@@ -317,5 +471,62 @@
 	}
 	.import-row input[type='file'] {
 		max-width: 340px;
+	}
+	.key-status {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 13px;
+		color: var(--muted);
+		margin-bottom: 6px;
+	}
+	.key-dot {
+		width: 9px;
+		height: 9px;
+		border-radius: 50%;
+		background: var(--faint);
+		flex: none;
+	}
+	.key-dot.on {
+		background: var(--done);
+	}
+	.key-dot.err {
+		background: var(--open);
+	}
+	.key-src {
+		color: var(--faint);
+	}
+	.key-err {
+		color: var(--open);
+	}
+	.key-err-detail {
+		font-size: 12px;
+		color: var(--open);
+		margin: 0 0 10px;
+		font-family: var(--font-mono);
+	}
+	.key-row {
+		display: flex;
+		gap: 10px;
+		align-items: center;
+		flex-wrap: wrap;
+		margin-top: 8px;
+	}
+	.key-row input[type='password'] {
+		max-width: 360px;
+		font-family: var(--font-mono);
+	}
+	.key-actions {
+		display: flex;
+		gap: 10px;
+		margin-top: 12px;
+	}
+	.admin-note code {
+		display: inline-block;
+		margin-top: 4px;
+		font-size: 11.5px;
+		background: rgba(0, 0, 0, 0.05);
+		padding: 2px 6px;
+		border-radius: 5px;
 	}
 </style>

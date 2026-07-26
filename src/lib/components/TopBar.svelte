@@ -20,13 +20,15 @@
 	function onInput() {
 		clearTimeout(timer);
 		timer = setTimeout(() => {
+			// Searching from anywhere lands on the Issues list; preserve existing
+			// filters only when we're already there.
 			const params =
-				page.url.pathname === '/'
+				page.url.pathname === '/issues'
 					? new URLSearchParams(page.url.searchParams)
 					: new URLSearchParams();
 			if (value.trim()) params.set('q', value.trim());
 			else params.delete('q');
-			goto(`/?${params}`, { keepFocus: true, noScroll: true, replaceState: true });
+			goto(`/issues?${params}`, { keepFocus: true, noScroll: true, replaceState: true });
 		}, 200);
 	}
 

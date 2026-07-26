@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ISSUE_TYPES, PRIORITIES, STATUSES } from './types';
+import { ISSUE_TYPES, PRIORITIES, PROVIDERS, REFINE_MODES, STATUSES } from './types';
 
 const slug = z
 	.string()
@@ -57,7 +57,7 @@ export const attachmentSchema = z.object({
 	filename: z.string().min(1),
 	originalName: z.string().min(1),
 	mime: z.string().min(1),
-	kind: z.enum(['image', 'pdf']),
+	kind: z.enum(['image', 'pdf', 'doc', 'archive', 'html']),
 	size: z.number().int().nonnegative(),
 	url: z.string().min(1),
 	uploadedBy: z.string().min(1),
@@ -129,3 +129,31 @@ export const createIssueSchema = z.object({
 });
 
 export const updateIssueSchema = createIssueSchema.partial();
+
+// ---------- Generative AI ----------
+/** On-disk shape of an encrypted provider key (never leaves the server). */
+export const storedCredentialSchema = z.object({
+	provider: z.enum(PROVIDERS),
+	ciphertext: z.string().min(1),
+	iv: z.string().min(1),
+	authTag: z.string().min(1),
+	hint: z.string().min(1),
+	status: z.enum(['configured', 'error']),
+	lastTestedAt: z.string().optional(),
+	lastRotatedAt: z.string().optional(),
+	lastError: z.string().optional()
+});
+
+export const refineRequestSchema = z.object({
+	description: z.string().min(1, 'Nothing to refine — write a description first.'),
+	mode: z.enum(REFINE_MODES),
+	instruction: z.string().trim().max(500).optional()
+});
+
+export const extractTagsRequestSchema = z.object({
+	title: z.string().default(''),
+	description: z.string().default('')
+});
+
+/** The model returns a JSON array of tag slugs; bound its size, fail closed. */
+export const extractedTagsSchema = z.array(z.string().min(1).max(40)).min(1).max(12);

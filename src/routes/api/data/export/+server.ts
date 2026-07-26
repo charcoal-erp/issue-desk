@@ -11,11 +11,14 @@ export const GET: RequestHandler = async () => {
 	await store.ensureLoaded();
 	const { zip, manifest } = await buildDataExport();
 	const stamp = manifest.exportedAt.slice(0, 19).replace(/[T:]/g, '-');
+	// Surface any excluded items so the UI can warn instead of implying a clean
+	// snapshot. The full list is inside the archive's manifest.json.
 	return new Response(new Uint8Array(zip), {
 		headers: {
 			'content-type': 'application/zip',
 			'content-length': String(zip.byteLength),
-			'content-disposition': `attachment; filename="issuedesk-data-${stamp}.zip"`
+			'content-disposition': `attachment; filename="issuedesk-data-${stamp}.zip"`,
+			'x-export-skipped': String(manifest.skipped.length)
 		}
 	});
 };

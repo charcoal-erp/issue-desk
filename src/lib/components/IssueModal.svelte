@@ -2,7 +2,7 @@
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/state';
-	import type { Application, Attachment, Issue, IssueType, Priority, Status } from '$lib/types';
+	import type { Application, Attachment, Issue, IssueType, Priority, RefineMode, Status } from '$lib/types';
 	import type { User } from '$lib/types';
 	import { PRIORITIES, STATUSES } from '$lib/types';
 	import { PRIORITY_META } from '$lib/priority';
@@ -65,6 +65,110 @@
 		}
 	});
 
+	// ---------- Generative AI: refine + tag suggestions ----------
+	const REFINE_MODES: { mode: RefineMode; label: string; blurb: string }[] = [
+		{ mode: 'clarify', label: 'Clarify', blurb: 'Remove ambiguity, tighten wording — no new facts.' },
+		{ mode: 'repro', label: 'Repro steps', blurb: 'Summary / Steps / Expected / Actual sections.' },
+		{ mode: 'structure', label: 'Structure', blurb: 'Headings and bullets; keep every detail.' },
+		{ mode: 'concise', label: 'Concise', blurb: 'Cut filler; keep every concrete fact.' },
+		{ mode: 'strengthen', label: 'Strengthen', blurb: 'Make it specific and actionable.' },
+		{ mode: 'custom', label: 'Custom…', blurb: 'Your own instruction.' }
+	];
+	let refineOpen = $state(false);
+	let refineBusy = $state(false);
+	let refineMode = $state<RefineMode>('clarify');
+	let customInstruction = $state('');
+	let refinePreview = $state<string | null>(null);
+	let refineModelLabel = $state('');
+
+	async function runRefine(mode: RefineMode) {
+		if (!description.trim()) {
+			toast('Nothing to refine', 'Write a description first.');
+			return;
+		}
+		refineMode = mode;
+		if (mode === 'custom' && !customInstruction.trim()) return; // wait for the instruction
+		refineBusy = true;
+		try {
+			const res = await fetch('/api/ai/refine', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ description, mode, instruction: customInstruction.trim() || undefined })
+			});
+			const body = await res.json();
+			if (!res.ok) {
+				toast('Refine failed', String(body.message ?? res.statusText));
+				return; // original description untouched
+			}
+			refinePreview = body.refined;
+			refineModelLabel = body.model ?? '';
+		} catch (e) {
+			toast('Refine failed', String((e as Error).message ?? e));
+		} finally {
+			refineBusy = false;
+		}
+	}
+
+	function applyRefine() {
+		if (refinePreview !== null) description = refinePreview;
+		refinePreview = null;
+		refineOpen = false;
+		toast('Description updated', 'Review it, then save the issue to persist.');
+	}
+
+	function discardRefine() {
+		refinePreview = null;
+	}
+
+	let taggingBusy = $state(false);
+	let tagSuggestions = $state<{ slug: string; label: string }[] | null>(null);
+
+	async function suggestTags() {
+		if (!title.trim() && !description.trim()) {
+			toast('Nothing to tag', 'Add a title or description first.');
+			return;
+		}
+		taggingBusy = true;
+		try {
+			const res = await fetch('/api/ai/extract-tags', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({ title, description })
+			});
+			const body = await res.json();
+			if (!res.ok) {
+				toast('Tag suggestion failed', String(body.message ?? res.statusText));
+				return; // existing tags untouched
+			}
+			tagSuggestions = body.tags ?? [];
+			if (tagSuggestions && tagSuggestions.length === 0) toast('No tags suggested', 'Try adding more detail.');
+		} catch (e) {
+			toast('Tag suggestion failed', String((e as Error).message ?? e));
+		} finally {
+			taggingBusy = false;
+		}
+	}
+
+	function currentTagSet(): string[] {
+		return tags
+			.split(',')
+			.map((t) => t.trim().toLowerCase())
+			.filter(Boolean);
+	}
+
+	function addTag(slug: string) {
+		const set = currentTagSet();
+		if (!set.includes(slug.toLowerCase())) {
+			tags = [...set, slug].join(', ');
+		}
+		if (tagSuggestions) tagSuggestions = tagSuggestions.filter((t) => t.slug !== slug);
+	}
+
+	function addAllTags() {
+		for (const t of tagSuggestions ?? []) addTag(t.slug);
+		tagSuggestions = [];
+	}
+
 	const app = $derived(applications.find((a) => a.id === appId));
 
 	const nextIdPreview = $derived(
@@ -96,7 +200,7 @@
 		</div>
 		<form
 			method="POST"
-			action={editing ? '/?/updateIssue' : '/?/createIssue'}
+			action={editing ? '/issues?/updateIssue' : '/issues?/createIssue'}
 			use:enhance={() => {
 				saving = true;
 				return async ({ result }) => {
@@ -200,7 +304,64 @@
 					</div>
 
 					<div class="field full">
-						<label for="f-desc">Description <span class="hint">· Markdown supported</span></label>
+						<label for="f-desc">
+							Description <span class="hint">· Markdown supported</span>
+							<button
+								type="button"
+								class="ai-btn"
+								onclick={() => (refineOpen = !refineOpen)}
+								aria-expanded={refineOpen}
+							>
+								<Icon name="sparkle" />Refine with AI
+							</button>
+						</label>
+
+						{#if refineOpen}
+							<div class="ai-panel">
+								<div class="ai-modes">
+									{#each REFINE_MODES as m (m.mode)}
+										<button
+											type="button"
+											class="ai-mode"
+											class:on={refineMode === m.mode}
+											title={m.blurb}
+											disabled={refineBusy}
+											onclick={() => runRefine(m.mode)}
+										>
+											{m.label}
+										</button>
+									{/each}
+								</div>
+								{#if refineMode === 'custom'}
+									<div class="ai-custom">
+										<input
+											class="inp"
+											placeholder="e.g. rewrite for a non-technical stakeholder"
+											bind:value={customInstruction}
+										/>
+										<button class="btn btn-primary btn-sm" type="button" disabled={refineBusy || !customInstruction.trim()} onclick={() => runRefine('custom')}>
+											{refineBusy ? 'Refining…' : 'Refine'}
+										</button>
+									</div>
+								{/if}
+								{#if refineBusy}
+									<div class="ai-status">Refining with Claude…</div>
+								{/if}
+								{#if refinePreview !== null}
+									<div class="ai-preview">
+										<div class="ai-preview-head">
+											Suggested rewrite {#if refineModelLabel}<span class="ai-model">· {refineModelLabel}</span>{/if}
+										</div>
+										<pre class="ai-preview-body">{refinePreview}</pre>
+										<div class="ai-preview-actions">
+											<button class="btn btn-primary btn-sm" type="button" onclick={applyRefine}>Apply</button>
+											<button class="btn btn-ghost btn-sm" type="button" onclick={discardRefine}>Discard</button>
+										</div>
+									</div>
+								{/if}
+							</div>
+						{/if}
+
 						<textarea
 							class="ta"
 							id="f-desc"
@@ -248,12 +409,27 @@
 						</select>
 					</div>
 					<div class="field">
-						<label for="f-tags">Tags <span class="hint">· comma-separated</span></label>
+						<label for="f-tags">
+							Tags <span class="hint">· comma-separated</span>
+							<button type="button" class="ai-btn" disabled={taggingBusy} onclick={suggestTags}>
+								<Icon name="sparkle" />{taggingBusy ? 'Suggesting…' : 'Suggest'}
+							</button>
+						</label>
 						<input class="inp" id="f-tags" name="tags" bind:value={tags} placeholder="auth, regression" />
+						{#if tagSuggestions && tagSuggestions.length}
+							<div class="tag-suggest">
+								{#each tagSuggestions as t (t.slug)}
+									<button type="button" class="tag-sug" onclick={() => addTag(t.slug)}>
+										<Icon name="plus" />{t.label}
+									</button>
+								{/each}
+								<button type="button" class="tag-sug all" onclick={addAllTags}>Add all</button>
+							</div>
+						{/if}
 					</div>
 
 					<div class="field full">
-						<label for="f-dz">Attachments <span class="hint">· PNG, JPG, WEBP, GIF, PDF · max 15 MB each</span></label>
+						<label for="f-dz">Attachments <span class="hint">· PNG, JPG, WEBP, GIF, PDF, HTML, ZIP, DOC, DOCX · max 15 MB each</span></label>
 						<AttachmentDropzone
 							bind:attachments
 							{appId}
@@ -276,3 +452,135 @@
 		</form>
 	</div>
 </div>
+
+<style>
+	.ai-btn {
+		float: right;
+		display: inline-flex;
+		align-items: center;
+		gap: 4px;
+		font-size: 11.5px;
+		font-weight: 600;
+		color: var(--accent-ink);
+		background: var(--accent-soft-2);
+		border: 1px solid var(--accent-soft);
+		border-radius: 999px;
+		padding: 2px 9px;
+		cursor: pointer;
+	}
+	.ai-btn:hover:not(:disabled) {
+		background: var(--accent-soft);
+	}
+	.ai-btn:disabled {
+		opacity: 0.55;
+		cursor: default;
+	}
+	.ai-btn :global(svg) {
+		width: 13px;
+		height: 13px;
+	}
+	.ai-panel {
+		border: 1px solid var(--accent-soft);
+		background: var(--accent-soft-2);
+		border-radius: 10px;
+		padding: 10px;
+		margin: 6px 0 8px;
+	}
+	.ai-modes {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+	}
+	.ai-mode {
+		font-size: 12px;
+		padding: 4px 10px;
+		border-radius: 999px;
+		border: 1px solid var(--accent-soft);
+		background: #fff;
+		cursor: pointer;
+	}
+	.ai-mode.on {
+		background: var(--accent);
+		color: #fff;
+		border-color: var(--accent);
+	}
+	.ai-mode:disabled {
+		opacity: 0.6;
+		cursor: default;
+	}
+	.ai-custom {
+		display: flex;
+		gap: 8px;
+		margin-top: 8px;
+	}
+	.ai-status {
+		font-size: 12px;
+		color: var(--muted);
+		margin-top: 8px;
+	}
+	.ai-preview {
+		margin-top: 10px;
+		background: #fff;
+		border: 1px solid var(--accent-soft);
+		border-radius: 8px;
+		overflow: hidden;
+	}
+	.ai-preview-head {
+		font-size: 11.5px;
+		font-weight: 600;
+		color: var(--muted);
+		padding: 8px 10px;
+		border-bottom: 1px solid var(--accent-soft);
+	}
+	.ai-model {
+		font-weight: 400;
+		color: var(--faint);
+		font-family: var(--font-mono);
+	}
+	.ai-preview-body {
+		margin: 0;
+		padding: 10px;
+		max-height: 220px;
+		overflow: auto;
+		white-space: pre-wrap;
+		word-break: break-word;
+		font-size: 12.5px;
+		font-family: inherit;
+		line-height: 1.5;
+	}
+	.ai-preview-actions {
+		display: flex;
+		gap: 8px;
+		padding: 8px 10px;
+		border-top: 1px solid var(--accent-soft);
+	}
+	.tag-suggest {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 6px;
+		margin-top: 8px;
+	}
+	.tag-sug {
+		display: inline-flex;
+		align-items: center;
+		gap: 3px;
+		font-size: 12px;
+		padding: 3px 9px;
+		border-radius: 999px;
+		border: 1px dashed var(--accent-soft);
+		background: #fff;
+		color: var(--accent-ink);
+		cursor: pointer;
+	}
+	.tag-sug:hover {
+		background: var(--accent-soft-2);
+	}
+	.tag-sug.all {
+		border-style: solid;
+		font-weight: 600;
+	}
+	.tag-sug :global(svg) {
+		width: 12px;
+		height: 12px;
+	}
+</style>

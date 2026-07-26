@@ -9,7 +9,7 @@ describe('filter <-> URL round trip', () => {
 			appId: 'charcoal-erp',
 			moduleId: 'auth',
 			type: 'bug',
-			status: ['open', 'implemented'],
+			status: ['open', 'in-progress'],
 			priority: ['critical'],
 			assigneeId: 'kiran',
 			tag: 'regression',

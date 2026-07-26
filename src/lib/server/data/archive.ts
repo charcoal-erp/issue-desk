@@ -30,6 +30,11 @@ export const EXPORT_VERSION = 1;
 /** The DATA_DIR roots this archive covers. Order matters for restore. */
 const ROOTS = ['config', 'issues', 'uploads'] as const;
 
+export interface ExportSkip {
+	name: string; // zip-entry name that was excluded
+	reason: string;
+}
+
 export interface ExportManifest {
 	format: typeof EXPORT_FORMAT;
 	version: number;
@@ -41,6 +46,8 @@ export interface ExportManifest {
 		attachments: number;
 		uploadFiles: number;
 	};
+	/** Items excluded because they could not be read/parsed (never a silent drop). */
+	skipped: ExportSkip[];
 }
 
 const manifestSchema = z.object({
@@ -56,7 +63,8 @@ const manifestSchema = z.object({
 			uploadFiles: z.number()
 		})
 		.partial()
-		.optional()
+		.optional(),
+	skipped: z.array(z.object({ name: z.string(), reason: z.string() })).optional()
 });
 
 /** Recursively collect files under `dir`, returned as zip-entry names (posix, relative to DATA_DIR). */
@@ -96,6 +104,33 @@ export async function buildDataExport(): Promise<{ zip: Uint8Array; manifest: Ex
 		0
 	);
 
+	// Read every collected file into the archive. A file that has gone missing,
+	// become unreadable, or is corrupt is logged and excluded — the export must
+	// not fail silently or abort on one bad item (backup/restore requirement).
+	const skipped: ExportSkip[] = [];
+	const payloads: Array<{ name: string; data: Uint8Array }> = [];
+	for (const name of names) {
+		try {
+			const data = new Uint8Array(await readFile(path.join(base, ...name.split('/'))));
+			// A JSON entry that no longer parses would poison a later import — catch it now.
+			if (name.endsWith('.json')) {
+				try {
+					JSON.parse(new TextDecoder().decode(data));
+				} catch (e) {
+					throw new Error(`invalid JSON — ${(e as Error).message}`);
+				}
+			}
+			payloads.push({ name, data });
+		} catch (e) {
+			const reason = (e as NodeJS.ErrnoException).code
+				? `${(e as NodeJS.ErrnoException).code}: ${(e as Error).message}`
+				: (e as Error).message;
+			skipped.push({ name, reason });
+			console.warn(`[issuedesk] Excluding "${name}" from export — ${reason}`);
+		}
+	}
+
+	const includedUploadFiles = payloads.filter((p) => p.name.startsWith('uploads/')).length;
 	const manifest: ExportManifest = {
 		format: EXPORT_FORMAT,
 		version: EXPORT_VERSION,
@@ -105,8 +140,9 @@ export async function buildDataExport(): Promise<{ zip: Uint8Array; manifest: Ex
 			applications: applications.length,
 			issues: issueCount,
 			attachments: attachmentCount,
-			uploadFiles: names.filter((n) => n.startsWith('uploads/')).length
-		}
+			uploadFiles: includedUploadFiles
+		},
+		skipped
 	};
 
 	const entries: Zippable = {
@@ -115,9 +151,8 @@ export async function buildDataExport(): Promise<{ zip: Uint8Array; manifest: Ex
 			{ level: 6 }
 		]
 	};
-	for (const name of names) {
-		const data = new Uint8Array(await readFile(path.join(base, ...name.split('/'))));
-		// Attachment binaries (png/jpg/pdf) are already compressed — store them raw.
+	for (const { name, data } of payloads) {
+		// Attachment binaries (png/jpg/pdf/zip/docx) are already compressed — store raw.
 		entries[name] = [data, { level: name.startsWith('uploads/') ? 0 : 6 }];
 	}
 	return { zip: zipSync(entries), manifest };

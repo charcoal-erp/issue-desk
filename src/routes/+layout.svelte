@@ -23,9 +23,9 @@
 	let topbar = $state<TopBar | undefined>();
 
 	const NAV = [
-		{ href: '/', label: 'Issues', icon: 'rows' },
-		{ href: '/board', label: 'Board', icon: 'board' },
-		{ href: '/metrics', label: 'Metrics', icon: 'dashboard' }
+		{ href: '/', label: 'Dashboard', icon: 'dashboard' },
+		{ href: '/issues', label: 'Issues', icon: 'rows' },
+		{ href: '/board', label: 'Board', icon: 'board' }
 	];
 
 	function isActive(href: string): boolean {

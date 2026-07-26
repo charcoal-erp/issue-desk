@@ -10,8 +10,11 @@ export interface StatusMeta {
 
 export const STATUS_META: Record<Status, StatusMeta> = {
 	open: { label: 'Open', shortLabel: 'Open', color: '#E5484D', badgeClass: 'st-open', pickerClass: 's-open' },
-	implemented: {
-		label: 'Implemented', shortLabel: 'Impl.', color: '#F5A623', badgeClass: 'st-impl', pickerClass: 's-impl'
+	'in-progress': {
+		label: 'In-progress', shortLabel: 'In prog.', color: '#F5A623', badgeClass: 'st-inprog', pickerClass: 's-inprog'
+	},
+	'to-be-verified': {
+		label: 'To be verified', shortLabel: 'Verify', color: '#3B82F6', badgeClass: 'st-verify', pickerClass: 's-verify'
 	},
 	complete: {
 		label: 'Complete', shortLabel: 'Done', color: '#2FA36B', badgeClass: 'st-done', pickerClass: 's-done'
@@ -21,7 +24,7 @@ export const STATUS_META: Record<Status, StatusMeta> = {
 	}
 };
 
-export const STATUS_ORDER: Status[] = ['open', 'implemented', 'complete', 'rejected'];
+export const STATUS_ORDER: Status[] = ['open', 'in-progress', 'to-be-verified', 'complete', 'rejected'];
 
 export function statusRank(s: Status): number {
 	return STATUS_ORDER.indexOf(s);

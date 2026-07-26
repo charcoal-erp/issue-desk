@@ -2,8 +2,8 @@
 export const PRIORITIES = ['critical', 'very_high', 'high', 'medium', 'low'] as const;
 export type Priority = (typeof PRIORITIES)[number];
 
-export const STATUSES = ['open', 'implemented', 'complete', 'rejected'] as const;
-// open→Red, implemented→Yellow, complete→Green, rejected→Slate (won't implement)
+export const STATUSES = ['open', 'in-progress', 'to-be-verified', 'complete', 'rejected'] as const;
+// open→Red, in-progress→Yellow, to-be-verified→Blue, complete→Green, rejected→Slate (won't implement)
 export type Status = (typeof STATUSES)[number];
 
 export const ISSUE_TYPES = ['bug', 'feature'] as const;
@@ -55,7 +55,7 @@ export interface Attachment {
 	filename: string; // stored (sanitised) filename
 	originalName: string; // as uploaded
 	mime: string; // "image/png" | "application/pdf" | ...
-	kind: 'image' | 'pdf';
+	kind: 'image' | 'pdf' | 'doc' | 'archive' | 'html';
 	size: number; // bytes
 	url: string; // public URL: /api/files/<app>/<issueId>/<filename>
 	uploadedBy: string; // user id
@@ -151,3 +151,50 @@ export interface CreateIssueInput {
 }
 
 export type UpdateIssueInput = Partial<CreateIssueInput>;
+
+// ---------- Generative AI (§ LLM support) ----------
+// One provider today (Anthropic), but modelled as an enum so a second could be
+// added without reshaping the vault or the Keys screen.
+export const PROVIDERS = ['anthropic'] as const;
+export type Provider = (typeof PROVIDERS)[number];
+
+export interface ProviderMeta {
+	label: string;
+	envKey: string; // env var read as a fallback when the vault has no entry
+	keyHint: string; // placeholder shown on the Keys screen
+	defaultModel: string; // used for refinement
+	fastModel: string; // used for the cheaper tag-extraction call
+}
+
+export const PROVIDER_META: Record<Provider, ProviderMeta> = {
+	anthropic: {
+		label: 'Anthropic (Claude)',
+		envKey: 'ANTHROPIC_API_KEY',
+		keyHint: 'sk-ant-…',
+		defaultModel: 'claude-opus-4-8',
+		fastModel: 'claude-haiku-4-5'
+	}
+};
+
+/** Client-safe view of a stored credential — never carries key material. */
+export interface CredentialStatusView {
+	provider: Provider;
+	status: 'unset' | 'configured' | 'error';
+	hint: string; // masked, e.g. "••••4f2a" or "••••env"
+	source: 'vault' | 'env' | 'none';
+	lastTestedAt?: string;
+	lastRotatedAt?: string;
+	lastError?: string;
+}
+
+// Description-refinement modes, analogous to Prism's prompt refiner. The system
+// prompts live server-side; only these labels reach the client.
+export const REFINE_MODES = [
+	'clarify',
+	'repro',
+	'structure',
+	'concise',
+	'strengthen',
+	'custom'
+] as const;
+export type RefineMode = (typeof REFINE_MODES)[number];

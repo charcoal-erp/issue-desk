@@ -58,6 +58,43 @@ export interface LoadedIssueFile {
 	issues: Issue[];
 }
 
+/**
+ * Legacy status rename (§ status migration): "implemented" → "in-progress".
+ * Applied on load as a safety net so a file that predates the rename (or an
+ * imported older backup) is never dropped by the enum-constrained schema. The
+ * canonical fix is the on-disk migration in `scripts/migrate_status.mjs`; this
+ * just guarantees load never silently loses issues in the interim.
+ */
+function coerceLegacyStatuses(raw: unknown): unknown {
+	if (!Array.isArray(raw)) return raw;
+	let changed = false;
+	for (const issue of raw) {
+		if (issue && typeof issue === 'object') {
+			const i = issue as { status?: unknown; activity?: unknown };
+			if (i.status === 'implemented') {
+				i.status = 'in-progress';
+				changed = true;
+			}
+			if (Array.isArray(i.activity)) {
+				for (const a of i.activity) {
+					if (a && typeof a === 'object') {
+						const ev = a as { from?: unknown; to?: unknown };
+						if (ev.from === 'implemented') ev.from = 'in-progress';
+						if (ev.to === 'implemented') ev.to = 'in-progress';
+					}
+				}
+			}
+		}
+	}
+	if (changed) {
+		console.warn(
+			'[issuedesk] Coerced legacy "implemented" status → "in-progress" on load. ' +
+				'Run scripts/migrate_status.mjs to persist the change to disk.'
+		);
+	}
+	return raw;
+}
+
 /** Walk issues/<app>/<module>.json; a malformed file is logged and skipped. */
 export async function loadAllIssues(): Promise<LoadedIssueFile[]> {
 	const out: LoadedIssueFile[] = [];
@@ -79,7 +116,7 @@ export async function loadAllIssues(): Promise<LoadedIssueFile[]> {
 			continue;
 		}
 		for (const file of files) {
-			const raw = await readJson(path.join(issuesDir(appId), file));
+			const raw = coerceLegacyStatuses(await readJson(path.join(issuesDir(appId), file)));
 			const issues = safeParse(z.array(issueSchema), raw, `issues/${appId}/${file}`);
 			if (issues) out.push({ appId, moduleId: file.replace(/\.json$/, ''), issues });
 		}

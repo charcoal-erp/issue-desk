@@ -3,7 +3,7 @@
 	import { PRIORITIES, STATUSES } from '$lib/types';
 	import { PRIORITY_META } from '$lib/priority';
 	import { STATUS_META } from '$lib/status';
-	import type { FilterCounts } from '../../routes/+page.server';
+	import type { FilterCounts } from '../../routes/issues/+page.server';
 	import Icon from './Icon.svelte';
 	import PriorityMeter from './PriorityMeter.svelte';
 

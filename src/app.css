@@ -16,10 +16,12 @@
 	--accent-soft-2: #f4f2ff;
 
 	--open: #e5484d; /* Open   (Red)   */
-	--impl: #f5a623; /* Implemented (Yellow) */
+	--inprog: #f5a623; /* In-progress (Yellow) */
+	--verify: #3b82f6; /* To be verified (Blue) */
 	--done: #2fa36b; /* Complete (Green) */
 	--open-soft: #fdecec;
-	--impl-soft: #fef4e1;
+	--inprog-soft: #fef4e1;
+	--verify-soft: #e7effe;
 	--done-soft: #e7f5ee;
 	--rejected: #64748b; /* Rejected (Slate) */
 	--rejected-soft: #eef1f5;
@@ -845,9 +847,13 @@ textarea {
 	background: var(--open-soft);
 	color: #c0343a;
 }
-.st-impl {
-	background: var(--impl-soft);
+.st-inprog {
+	background: var(--inprog-soft);
 	color: #b47407;
+}
+.st-verify {
+	background: var(--verify-soft);
+	color: #1d4ed8;
 }
 .st-done {
 	background: var(--done-soft);
@@ -1293,7 +1299,7 @@ textarea {
 	display: flex;
 	gap: 10px;
 	align-items: flex-start;
-	background: var(--impl-soft);
+	background: var(--inprog-soft);
 	border: 1px solid #f6dfa8;
 	border-radius: 10px;
 	padding: 12px 14px;
@@ -1622,9 +1628,13 @@ textarea {
 	background: var(--open-soft);
 	border-color: #f3b9bb;
 }
-.status-opt.on.s-impl {
-	background: var(--impl-soft);
+.status-opt.on.s-inprog {
+	background: var(--inprog-soft);
 	border-color: #f6dfa8;
+}
+.status-opt.on.s-verify {
+	background: var(--verify-soft);
+	border-color: #bcd3fb;
 }
 .status-opt.on.s-done {
 	background: var(--done-soft);

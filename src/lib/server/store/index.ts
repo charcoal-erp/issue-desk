@@ -96,6 +96,11 @@ export function settings(): Settings {
 	return settingsObj;
 }
 
+/** Distinct tag slugs currently in use — the reconciliation vocabulary for AI tag extraction. */
+export function tags(): string[] {
+	return [...indexes.byTag.keys()];
+}
+
 /** "CHR-15" per app — the modal's next-ID preview. */
 export function nextIds(): Record<string, string> {
 	const out: Record<string, string> = {};

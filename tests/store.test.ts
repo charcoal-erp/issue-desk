@@ -130,10 +130,10 @@ describe('IssueStore.list', () => {
 describe('IssueStore.update', () => {
 	it('tracks changes and can move an issue between modules keeping its ID', async () => {
 		const created = await store.create(base, 'kiran');
-		const moved = await store.update(created.id, { moduleId: 'hr', status: 'implemented' }, 'tushar');
+		const moved = await store.update(created.id, { moduleId: 'hr', status: 'in-progress' }, 'tushar');
 		expect(moved.id).toBe(created.id);
 		expect(moved.moduleName).toBe('HR');
-		expect(moved.activity.some((a) => a.kind === 'status' && a.to === 'implemented')).toBe(true);
+		expect(moved.activity.some((a) => a.kind === 'status' && a.to === 'in-progress')).toBe(true);
 		const acct = JSON.parse(await readFile(path.join(dir, 'issues/charcoal/accounting.json'), 'utf8'));
 		const hr = JSON.parse(await readFile(path.join(dir, 'issues/charcoal/hr.json'), 'utf8'));
 		expect(acct.some((i: { id: string }) => i.id === created.id)).toBe(false);
