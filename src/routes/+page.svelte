@@ -1,104 +1,123 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
-	import type { Issue, IssueFilter } from '$lib/types';
-	import { filterToParams } from '$lib/filter';
-	import { singleIssueMarkdown } from '$lib/export/copyIssue';
-	import { toast } from '$lib/stores/toasts.svelte';
-	import { openDrawer, openEditIssue, openExport, openNewIssue } from '$lib/stores/ui.svelte';
-	import FilterRail from '$lib/components/FilterRail.svelte';
-	import FilterChips from '$lib/components/FilterChips.svelte';
-	import IssueTable from '$lib/components/IssueTable.svelte';
-	import Icon from '$lib/components/Icon.svelte';
+	import { PRIORITIES } from '$lib/types';
+	import { PRIORITY_META } from '$lib/priority';
+	import { STATUS_META } from '$lib/status';
+	import { relDate } from '$lib/format';
+	import { openDrawer } from '$lib/stores/ui.svelte';
+	import PriorityMeter from '$lib/components/PriorityMeter.svelte';
 
 	let { data } = $props();
 
-	let quick = $state(page.url.searchParams.get('q') ?? '');
-	let quickTimer: ReturnType<typeof setTimeout> | undefined;
+	const issues = $derived(data.issues);
+	const open = $derived(issues.filter((i) => i.status === 'open').length);
+	const impl = $derived(issues.filter((i) => i.status === 'implemented').length);
+	const rejected = $derived(issues.filter((i) => i.status === 'rejected').length);
+	const crit = $derived(issues.filter((i) => i.priority === 'critical' && i.status === 'open').length);
+	const bugs = $derived(issues.filter((i) => i.type === 'bug').length);
+	const features = $derived(issues.filter((i) => i.type === 'feature').length);
 
-	$effect(() => {
-		quick = page.url.searchParams.get('q') ?? '';
-	});
+	const appList = $derived(
+		data.applications.filter((a) => issues.some((i) => i.appId === a.id))
+	);
+	const openByApp = $derived(
+		new Map(appList.map((a) => [a.id, issues.filter((i) => i.appId === a.id && i.status === 'open').length]))
+	);
+	const maxApp = $derived(Math.max(...[...openByApp.values()], 1));
 
-	function navigate(patch: Partial<IssueFilter>, replace = false) {
-		const next: IssueFilter = { ...data.filter, ...patch };
-		goto(`/?${filterToParams(next)}`, { keepFocus: true, noScroll: true, replaceState: replace });
+	const byPriority = $derived(
+		new Map(PRIORITIES.map((p) => [p, issues.filter((i) => i.priority === p).length]))
+	);
+	const maxPriority = $derived(Math.max(...[...byPriority.values()], 1));
+
+	const recent = $derived(issues.slice(0, 6));
+
+	function userName(id: string): string {
+		return data.users.find((u) => u.id === id)?.name ?? id;
 	}
 
-	function onQuickInput() {
-		clearTimeout(quickTimer);
-		quickTimer = setTimeout(() => navigate({ q: quick.trim() || undefined }, true), 200);
-	}
-
-	function clearAll() {
-		quick = '';
-		goto('/', { keepFocus: true, noScroll: true });
-	}
-
-	function sortBy(key: NonNullable<IssueFilter['sort']>) {
-		const current = data.filter.sort ?? 'updated';
-		const newestFirst = (k: string) => k === 'priority' || k === 'updated' || k === 'created';
-		const currentDir = data.filter.dir ?? (newestFirst(current) ? 'desc' : 'asc');
-		if (current === key) {
-			navigate({ sort: key, dir: currentDir === 'asc' ? 'desc' : 'asc' });
-		} else {
-			navigate({ sort: key, dir: newestFirst(key) ? 'desc' : 'asc' });
-		}
-	}
-
-	async function copyIssue(issue: Issue) {
-		try {
-			await navigator.clipboard.writeText(
-				singleIssueMarkdown(issue, data.users, location.origin)
-			);
-			toast(`Copied ${issue.id}`, 'Single-issue prompt ready for Claude Code');
-		} catch {
-			toast('Copy failed', 'Select the text and copy manually');
-		}
-	}
+	const stats = $derived([
+		{ k: 'Total issues', v: issues.length, c: 'var(--accent)', d: `${bugs} bugs · ${features} features` },
+		{ k: 'Open', v: open, c: 'var(--open)', d: 'awaiting work' },
+		{ k: 'Implemented', v: impl, c: 'var(--impl)', d: 'in verification' },
+		{ k: 'Rejected', v: rejected, c: 'var(--rejected)', d: 'won’t implement' },
+		{ k: 'Critical & open', v: crit, c: '#B0343A', d: 'need attention now' }
+	]);
 </script>
 
-<section class="screen">
-	<FilterRail
-		applications={data.applications}
-		counts={data.counts}
-		filter={data.filter}
-		onChange={(patch) => navigate(patch)}
-	/>
-
-	<div class="table-area">
-		<div class="toolbar">
-			<h1>Issues</h1>
-			<span class="count">{data.total} {data.total === 1 ? 'issue' : 'issues'}</span>
-			<div class="toolbar-spacer"></div>
-			<div class="tb-search">
-				<Icon name="search" />
-				<input placeholder="Quick filter…" bind:value={quick} oninput={onQuickInput} />
-			</div>
-			<button class="btn btn-ghost" onclick={() => openExport(data.total)}>
-				<Icon name="export" />
-				Export
-			</button>
-			<button class="btn btn-primary" onclick={() => openNewIssue()}>
-				<Icon name="plus" />
-				New issue
-			</button>
+<section class="screen screen-dashboard">
+	<div class="dash">
+		<h1>Metrics</h1>
+		<p class="sub">Portfolio-wide snapshot across all applications.</p>
+		<div class="stat-grid">
+			{#each stats as stat (stat.k)}
+				<div class="stat">
+					<span class="accent-bar" style="background:{stat.c}"></span>
+					<div class="k">{stat.k}</div>
+					<div class="v" style="color:{stat.c}">{stat.v}</div>
+					<div class="d">{stat.d}</div>
+				</div>
+			{/each}
 		</div>
-		<FilterChips
-			filter={data.filter}
-			applications={data.applications}
-			onChange={(patch) => navigate(patch)}
-			onClearAll={clearAll}
-		/>
-		<IssueTable
-			rows={data.rows}
-			users={data.users}
-			applications={data.applications}
-			filter={data.filter}
-			onSort={sortBy}
-			onOpen={(issue) => openDrawer(issue)}
-			onEdit={(issue) => openEditIssue(issue)}
-			onCopy={copyIssue}
-		/>
+		<div class="panel-grid">
+			<div class="panel">
+				<div class="panel-head"><h3>Open issues by application</h3></div>
+				<div class="panel-body">
+					{#each appList as app (app.id)}
+						{@const n = openByApp.get(app.id) ?? 0}
+						<div class="bar-row">
+							<div class="bl"><span class="app-dot" style="background:{app.color}"></span>{app.name}</div>
+							<div class="track">
+								<div class="fill" style="width:{Math.max((n / maxApp) * 100, 4)}%;background:{app.color}"></div>
+							</div>
+							<div class="bn">{n}</div>
+						</div>
+					{/each}
+				</div>
+			</div>
+			<div class="panel">
+				<div class="panel-head"><h3>By priority</h3></div>
+				<div class="panel-body">
+					{#each PRIORITIES as p (p)}
+						{@const n = byPriority.get(p) ?? 0}
+						<div class="bar-row">
+							<div class="bl"><PriorityMeter priority={p} /> {PRIORITY_META[p].label}</div>
+							<div class="track">
+								<div
+									class="fill"
+									style="width:{Math.max((n / maxPriority) * 100, 4)}%;background:{PRIORITY_META[p].color}"
+								></div>
+							</div>
+							<div class="bn">{n}</div>
+						</div>
+					{/each}
+				</div>
+			</div>
+		</div>
+		<div class="panel" style="margin-top:16px">
+			<div class="panel-head"><h3>Recent activity</h3></div>
+			<div class="panel-body">
+				{#each recent as issue (issue.id)}
+					<div class="act-item">
+						<span class="act-dot" style="background:{STATUS_META[issue.status].color}"></span>
+						<div class="ai-body">
+							<b>{userName(issue.reporterId)}</b> reported
+							<button class="mid" onclick={() => openDrawer(issue)}>{issue.id}</button> — {issue.title}
+							<span style="color:var(--faint)">in {issue.appName} / {issue.moduleName}</span>
+						</div>
+						<div class="ai-time">{relDate(issue.updatedAt)}</div>
+					</div>
+				{/each}
+			</div>
+		</div>
 	</div>
 </section>
+
+<style>
+	button.mid {
+		padding: 0;
+		cursor: pointer;
+	}
+	button.mid:hover {
+		text-decoration: underline;
+	}
+</style>
