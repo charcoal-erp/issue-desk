@@ -1451,6 +1451,10 @@ textarea {
 	/* Anchors in-dialog overlays, e.g. the issue form's discard confirmation. */
 	position: relative;
 }
+/* The issue form runs four fields across, so it needs the extra width. */
+.issue-modal {
+	max-width: 1060px;
+}
 /* The form wrapping body + footer must pass the height constraint through. */
 .modal > form {
 	display: flex;
@@ -1516,18 +1520,27 @@ textarea {
 	min-height: 0;
 	flex: 1;
 }
+/* Twelve columns so a row can be halves, thirds or quarters; a plain .field is
+   still a half, which is what every form outside the issue dialog expects. */
 .form-grid {
 	display: grid;
-	grid-template-columns: 1fr 1fr;
+	grid-template-columns: repeat(12, 1fr);
 	gap: 18px 22px;
 }
 .field {
+	grid-column: span 6;
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
 }
 .field.full {
 	grid-column: 1 / -1;
+}
+.field.third {
+	grid-column: span 4;
+}
+.field.quarter {
+	grid-column: span 3;
 }
 .field label {
 	font-size: 12px;
@@ -1584,98 +1597,6 @@ textarea {
 	min-height: 120px;
 	font-family: inherit;
 	line-height: 1.5;
-}
-
-.prio-picker {
-	display: flex;
-	gap: 6px;
-}
-.prio-opt {
-	flex: 1;
-	border: 1px solid var(--line);
-	border-radius: 8px;
-	padding: 8px 4px;
-	display: flex;
-	flex-direction: column;
-	align-items: center;
-	gap: 5px;
-	transition: 0.14s;
-	background: var(--surface);
-}
-.prio-opt:hover {
-	border-color: #cbd3de;
-}
-.prio-opt.on {
-	border-color: var(--accent);
-	background: var(--accent-soft-2);
-	box-shadow: 0 0 0 2px var(--accent-soft);
-}
-.prio-opt .pm {
-	display: inline-flex;
-	gap: 2px;
-}
-.prio-opt .pm i {
-	width: 4px;
-	height: 11px;
-	border-radius: 2px;
-	background: #e3e7ed;
-}
-.prio-opt .pl {
-	font-size: 10.5px;
-	font-weight: 600;
-	color: var(--ink-2);
-}
-
-.status-picker {
-	display: flex;
-	gap: 6px;
-}
-.status-opt {
-	flex: 1;
-	border: 1px solid var(--line);
-	border-radius: 8px;
-	padding: 8px;
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	gap: 7px;
-	font-size: 12.5px;
-	font-weight: 600;
-	color: var(--muted);
-	transition: 0.14s;
-	background: var(--surface);
-}
-.status-opt .dot {
-	width: 9px;
-	height: 9px;
-	border-radius: 50%;
-}
-.status-opt.on {
-	color: var(--ink);
-}
-.status-opt.on.s-backlog {
-	background: var(--backlog-soft);
-	border-color: #ddd0fb;
-}
-.status-opt.on.s-open {
-	background: var(--open-soft);
-	border-color: #f3b9bb;
-}
-.status-opt.on.s-inprog {
-	background: var(--inprog-soft);
-	border-color: #f6dfa8;
-}
-.status-opt.on.s-verify {
-	background: var(--verify-soft);
-	border-color: #bcd3fb;
-}
-.status-opt.on.s-done {
-	background: var(--done-soft);
-	border-color: #aedcc4;
-}
-.status-opt.on.s-rejected {
-	background: var(--rejected-soft);
-	border-color: #cbd3de;
 }
 
 .type-picker {
@@ -2505,7 +2426,17 @@ textarea {
 	.filters {
 		display: none;
 	}
-	.form-grid {
-		grid-template-columns: 1fr;
+	.field,
+	.field.third {
+		grid-column: 1 / -1;
+	}
+	/* The four short selects still pair up rather than each taking a row. */
+	.field.quarter {
+		grid-column: span 6;
+	}
+}
+@media (max-width: 560px) {
+	.field.quarter {
+		grid-column: 1 / -1;
 	}
 }

@@ -13,7 +13,7 @@
 	import { STATUS_META } from '$lib/status';
 	import { SOURCE_META, SOURCE_ORDER } from '$lib/source';
 	import { DATE_PRESETS, activePreset, presetRange, type DatePresetId } from '$lib/dates';
-	import type { FilterCounts } from '../../routes/issues/+page.server';
+	import type { FilterCounts } from '$lib/counts';
 	import Icon from './Icon.svelte';
 	import PriorityMeter from './PriorityMeter.svelte';
 
@@ -22,12 +22,15 @@
 		categories,
 		counts,
 		filter,
+		hideStatus = false,
 		onChange
 	}: {
 		applications: Application[];
 		categories: Category[];
 		counts: FilterCounts;
 		filter: IssueFilter;
+		/** For a view that already *is* one status — the backlog page. */
+		hideStatus?: boolean;
 		onChange: (patch: Partial<IssueFilter>) => void;
 	} = $props();
 
@@ -44,8 +47,6 @@
 		}))
 	);
 
-	const backlogCount = $derived(counts.byStatus.backlog ?? 0);
-	const backlogOnly = $derived(filter.status?.length === 1 && filter.status[0] === 'backlog');
 	const preset = $derived(activePreset(filter));
 
 	function toggleStatus(s: Status) {
@@ -73,11 +74,6 @@
 		onChange({ type: t });
 	}
 
-	/** The backlog button is a shortcut, not a checkbox: it swaps the whole view. */
-	function toggleBacklog() {
-		onChange(backlogOnly ? { status: [] } : { status: ['backlog'] });
-	}
-
 	function applyPreset(id: DatePresetId) {
 		if (preset === id) {
 			onChange({ updatedFrom: undefined, updatedTo: undefined });
@@ -89,12 +85,6 @@
 </script>
 
 <aside class="filters">
-	<button class="backlog-btn" class:on={backlogOnly} onclick={toggleBacklog}>
-		<Icon name="board" />
-		<span class="bl">Backlog</span>
-		<span class="bc">{backlogCount}</span>
-	</button>
-
 	<div class="f-block">
 		<div class="f-title">
 			Applications <button class="clear" onclick={() => onChange({ appId: undefined, moduleId: undefined })}>Reset</button>
@@ -153,51 +143,30 @@
 		</div>
 	{/if}
 
-	{#if categories.length}
+	<div class="f-block">
+		<div class="f-title">Type</div>
+		<div class="seg">
+			<button class:on={!filter.type} onclick={() => setType(undefined)}>All</button>
+			<button class:on={filter.type === 'bug'} onclick={() => setType('bug')}>Bugs</button>
+			<button class:on={filter.type === 'feature'} onclick={() => setType('feature')}>Features</button>
+		</div>
+	</div>
+
+	{#if !hideStatus}
 		<div class="f-block">
-			<div class="f-title">
-				Category
-				<button class="clear" onclick={() => onChange({ categoryId: undefined })}>Reset</button>
-			</div>
+			<div class="f-title">Status</div>
 			<div>
-				<button
-					class="app-item"
-					class:active={!filter.categoryId}
-					onclick={() => onChange({ categoryId: undefined })}
-				>
-					<span class="app-dot" style="background:var(--muted)"></span>
-					<span class="an">All categories</span>
-					<span class="ac">{counts.total}</span>
-				</button>
-				{#each categories as c (c.id)}
-					<button
-						class="app-item"
-						class:active={filter.categoryId === c.id}
-						onclick={() => onChange({ categoryId: c.id })}
-						title={c.description}
-					>
-						<span class="app-dot" style="background:{c.color ?? 'var(--faint)'}"></span>
-						<span class="an">{c.name}</span>
-						<span class="ac">{counts.byCategory[c.id] ?? 0}</span>
+				{#each STATUSES as s (s)}
+					<button class="chk" class:on={filter.status?.includes(s)} onclick={() => toggleStatus(s)}>
+						<span class="box"><Icon name="check-bold" /></span>
+						<span class="status-dot" style="background:{STATUS_META[s].color}"></span>
+						<span class="cl">{STATUS_META[s].label}</span>
+						<span class="cn">{counts.byStatus[s] ?? 0}</span>
 					</button>
 				{/each}
 			</div>
 		</div>
 	{/if}
-
-	<div class="f-block">
-		<div class="f-title">Status</div>
-		<div>
-			{#each STATUSES as s (s)}
-				<button class="chk" class:on={filter.status?.includes(s)} onclick={() => toggleStatus(s)}>
-					<span class="box"><Icon name="check-bold" /></span>
-					<span class="status-dot" style="background:{STATUS_META[s].color}"></span>
-					<span class="cl">{STATUS_META[s].label}</span>
-					<span class="cn">{counts.byStatus[s] ?? 0}</span>
-				</button>
-			{/each}
-		</div>
-	</div>
 
 	<div class="f-block">
 		<div class="f-title">Priority</div>
@@ -231,25 +200,6 @@
 			{/each}
 		</div>
 	</div>
-
-	{#if counts.topTags.length}
-		<div class="f-block">
-			<div class="f-title">
-				Tags <button class="clear" onclick={() => onChange({ tag: undefined })}>Reset</button>
-			</div>
-			<div class="tag-cloud">
-				{#each counts.topTags as t (t.tag)}
-					<button
-						class="tag-pill"
-						class:on={filter.tag === t.tag}
-						onclick={() => onChange({ tag: filter.tag === t.tag ? undefined : t.tag })}
-					>
-						{t.tag}<span class="tc">{t.count}</span>
-					</button>
-				{/each}
-			</div>
-		</div>
-	{/if}
 
 	<div class="f-block">
 		<div class="f-title">
@@ -287,63 +237,59 @@
 		</div>
 	</div>
 
-	<div class="f-block">
-		<div class="f-title">Type</div>
-		<div class="seg">
-			<button class:on={!filter.type} onclick={() => setType(undefined)}>All</button>
-			<button class:on={filter.type === 'bug'} onclick={() => setType('bug')}>Bugs</button>
-			<button class:on={filter.type === 'feature'} onclick={() => setType('feature')}>Features</button>
+	{#if counts.topTags.length}
+		<div class="f-block">
+			<div class="f-title">
+				Tags <button class="clear" onclick={() => onChange({ tag: undefined })}>Reset</button>
+			</div>
+			<div class="tag-cloud">
+				{#each counts.topTags as t (t.tag)}
+					<button
+						class="tag-pill"
+						class:on={filter.tag === t.tag}
+						onclick={() => onChange({ tag: filter.tag === t.tag ? undefined : t.tag })}
+					>
+						{t.tag}<span class="tc">{t.count}</span>
+					</button>
+				{/each}
+			</div>
 		</div>
-	</div>
+	{/if}
+
+	{#if categories.length}
+		<div class="f-block">
+			<div class="f-title">
+				Category
+				<button class="clear" onclick={() => onChange({ categoryId: undefined })}>Reset</button>
+			</div>
+			<div>
+				<button
+					class="app-item"
+					class:active={!filter.categoryId}
+					onclick={() => onChange({ categoryId: undefined })}
+				>
+					<span class="app-dot" style="background:var(--muted)"></span>
+					<span class="an">All categories</span>
+					<span class="ac">{counts.total}</span>
+				</button>
+				{#each categories as c (c.id)}
+					<button
+						class="app-item"
+						class:active={filter.categoryId === c.id}
+						onclick={() => onChange({ categoryId: c.id })}
+						title={c.description}
+					>
+						<span class="app-dot" style="background:{c.color ?? 'var(--faint)'}"></span>
+						<span class="an">{c.name}</span>
+						<span class="ac">{counts.byCategory[c.id] ?? 0}</span>
+					</button>
+				{/each}
+			</div>
+		</div>
+	{/if}
 </aside>
 
 <style>
-	.backlog-btn {
-		display: flex;
-		align-items: center;
-		gap: 9px;
-		width: 100%;
-		padding: 11px 12px;
-		margin-bottom: 16px;
-		border: 1px solid var(--line);
-		border-radius: var(--radius-sm);
-		background: var(--surface);
-		box-shadow: var(--shadow-sm);
-		cursor: pointer;
-		color: var(--ink-2);
-		font-size: 13px;
-		font-weight: 600;
-	}
-	.backlog-btn:hover {
-		border-color: #c4b5fd;
-		background: #faf8ff;
-	}
-	.backlog-btn.on {
-		background: #7c3aed;
-		border-color: #7c3aed;
-		color: #fff;
-		box-shadow: var(--shadow-md);
-	}
-	.backlog-btn :global(svg) {
-		width: 16px;
-		height: 16px;
-	}
-	.backlog-btn .bl {
-		flex: 1;
-		text-align: left;
-	}
-	.backlog-btn .bc {
-		font-family: var(--font-mono);
-		font-size: 11.5px;
-		padding: 1px 7px;
-		border-radius: 999px;
-		background: var(--accent-soft-2);
-		color: #6d28d9;
-	}
-	.backlog-btn.on .bc {
-		background: rgba(255, 255, 255, 0.22);
-		color: #fff;
-	}
 	/* A long module list shouldn't push the rest of the rail out of reach. */
 	.scroller {
 		max-height: 230px;

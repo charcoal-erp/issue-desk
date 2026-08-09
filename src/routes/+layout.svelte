@@ -25,7 +25,8 @@
 	const NAV = [
 		{ href: '/', label: 'Dashboard', icon: 'dashboard' },
 		{ href: '/issues', label: 'Issues', icon: 'rows' },
-		{ href: '/board', label: 'Board', icon: 'board' }
+		{ href: '/board', label: 'Board', icon: 'board' },
+		{ href: '/backlog', label: 'Backlog', icon: 'layers' }
 	];
 
 	function isActive(href: string): boolean {

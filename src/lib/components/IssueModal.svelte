@@ -26,6 +26,7 @@
 	import AttachmentDropzone from './AttachmentDropzone.svelte';
 	import Icon from './Icon.svelte';
 	import PriorityMeter from './PriorityMeter.svelte';
+	import SelectMenu from './SelectMenu.svelte';
 
 	let {
 		mode,
@@ -64,6 +65,12 @@
 
 	// Only assignable users appear in the assignee list; reporters can be anyone.
 	const assignees = $derived(users.filter((u) => u.assignable));
+
+	// Priority and status are dropdowns like the two beside them, but they keep
+	// their swatch — the pip meter and the status dot — in the closed control and
+	// on every row, so the colour still does the reading work.
+	const priorityOptions = PRIORITIES.map((p) => ({ value: p, label: PRIORITY_META[p].label }));
+	const statusOptions = STATUSES.map((s) => ({ value: s, label: STATUS_META[s].label }));
 
 	// ---------- Unsaved-work protection ----------
 	// Everything the user can type, as one comparable value. `dirty` is this
@@ -287,6 +294,14 @@
 	}
 </script>
 
+{#snippet prioSwatch(p: Priority)}
+	<PriorityMeter priority={p} variant="pm" />
+{/snippet}
+
+{#snippet statusSwatch(s: Status)}
+	<span class="sw-dot" style="background:{STATUS_META[s].color}"></span>
+{/snippet}
+
 <div
 	class="backdrop"
 	role="presentation"
@@ -294,7 +309,7 @@
 		if (e.target === e.currentTarget) requestCloseIssueModal();
 	}}
 >
-	<div class="modal" role="dialog" aria-modal="true" aria-labelledby="issue-modal-title">
+	<div class="modal issue-modal" role="dialog" aria-modal="true" aria-labelledby="issue-modal-title">
 		<div class="modal-head">
 			<div class="mh-icon"><Icon name="task" /></div>
 			<div>
@@ -336,6 +351,10 @@
 			<input type="hidden" name="type" value={type} />
 			<input type="hidden" name="priority" value={priority} />
 			<input type="hidden" name="status" value={status} />
+			<!-- Form name is no longer captured in the UI, but it is still part of
+			     the issue record — post it back so editing never silently drops
+			     the value an older issue (or the API) already carries. -->
+			<input type="hidden" name="form" value={formText} />
 			<input type="hidden" name="draftId" value={draftId} />
 			<input type="hidden" name="attachments" value={JSON.stringify(attachments)} />
 
@@ -360,7 +379,7 @@
 						</div>
 					</div>
 
-					<div class="field">
+					<div class="field third">
 						<label for="f-app">Application <span class="req">*</span></label>
 						<select class="sel" id="f-app" name="appId" bind:value={appId} onchange={onAppChange}>
 							<option value="">Select application…</option>
@@ -370,7 +389,7 @@
 						</select>
 						{#if fieldErrors.appId}<span class="err">{fieldErrors.appId}</span>{/if}
 					</div>
-					<div class="field">
+					<div class="field third">
 						<label for="f-module">Module <span class="hint">· optional</span></label>
 						<select class="sel" id="f-module" name="moduleId" bind:value={moduleId} disabled={!app}>
 							<!-- Blank is a real answer: an issue often arrives before anyone
@@ -382,7 +401,7 @@
 						</select>
 						{#if fieldErrors.moduleId}<span class="err">{fieldErrors.moduleId}</span>{/if}
 					</div>
-					<div class="field">
+					<div class="field third">
 						<label for="f-page">Page <span class="hint">· free text</span></label>
 						<input
 							class="inp"
@@ -390,16 +409,6 @@
 							name="page"
 							bind:value={pageText}
 							placeholder="e.g. /login or Login screen"
-						/>
-					</div>
-					<div class="field">
-						<label for="f-form">Form <span class="hint">· free text</span></label>
-						<input
-							class="inp"
-							id="f-form"
-							name="form"
-							bind:value={formText}
-							placeholder="e.g. OTP Verification"
 						/>
 					</div>
 
@@ -483,35 +492,15 @@
 						></textarea>
 					</div>
 
-					<div class="field">
+					<div class="field quarter">
 						<label for="f-prio">Priority <span class="req">*</span></label>
-						<div class="prio-picker" id="f-prio">
-							{#each PRIORITIES as p (p)}
-								<button type="button" class="prio-opt" class:on={priority === p} onclick={() => (priority = p)}>
-									<PriorityMeter priority={p} variant="pm" />
-									<span class="pl">{PRIORITY_META[p].label}</span>
-								</button>
-							{/each}
-						</div>
+						<SelectMenu id="f-prio" bind:value={priority} options={priorityOptions} decor={prioSwatch} />
 					</div>
-					<div class="field">
+					<div class="field quarter">
 						<label for="f-status">Status</label>
-						<div class="status-picker" id="f-status">
-							{#each STATUSES as s (s)}
-								<button
-									type="button"
-									class="status-opt {STATUS_META[s].pickerClass}"
-									class:on={status === s}
-									onclick={() => (status = s)}
-								>
-									<span class="dot" style="background:{STATUS_META[s].color}"></span>
-									{STATUS_META[s].shortLabel}
-								</button>
-							{/each}
-						</div>
+						<SelectMenu id="f-status" bind:value={status} options={statusOptions} decor={statusSwatch} />
 					</div>
-
-					<div class="field">
+					<div class="field quarter">
 						<label for="f-assignee">Assignee</label>
 						<select class="sel" id="f-assignee" name="assigneeId" bind:value={assigneeId}>
 							<option value="">Unassigned</option>
@@ -520,7 +509,7 @@
 							{/each}
 						</select>
 					</div>
-					<div class="field">
+					<div class="field quarter">
 						<label for="f-category">
 							Category <span class="hint">· what it's about</span>
 						</label>
@@ -531,7 +520,8 @@
 							{/each}
 						</select>
 					</div>
-					<div class="field">
+
+					<div class="field full">
 						<label for="f-tags">
 							Tags <span class="hint">· comma-separated</span>
 							<button type="button" class="ai-btn" disabled={taggingBusy} onclick={suggestTags}>
@@ -601,6 +591,12 @@
 </div>
 
 <style>
+	.sw-dot {
+		width: 9px;
+		height: 9px;
+		border-radius: 50%;
+		flex: none;
+	}
 	.confirm {
 		position: absolute;
 		inset: 0;
