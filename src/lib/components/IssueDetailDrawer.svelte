@@ -5,6 +5,7 @@
 	import DOMPurify from 'dompurify';
 	import type { Application, Issue, User } from '$lib/types';
 	import { STATUS_ORDER, STATUS_META } from '$lib/status';
+	import { SOURCE_META } from '$lib/source';
 	import { PRIORITY_META } from '$lib/priority';
 	import { fmtDate, fmtDateTime, fmtWhen } from '$lib/format';
 	import { postAction } from '$lib/actions';
@@ -128,7 +129,14 @@
 					<span class="rk">Application</span>
 					<span class="rv"><span class="app-dot" style="background:{appColor}"></span>{issue.appName}</span>
 				</div>
-				<div class="row"><span class="rk">Module</span><span class="rv">{issue.moduleName}</span></div>
+				<div class="row"><span class="rk">Module</span><span class="rv">{issue.moduleName ?? '—'}</span></div>
+				<div class="row">
+					<span class="rk">Source</span>
+					<span class="rv" title={SOURCE_META[issue.source].description}>
+						<span class="app-dot" style="background:{SOURCE_META[issue.source].color}"></span
+						>{SOURCE_META[issue.source].label}
+					</span>
+				</div>
 				<div class="row">
 					<span class="rk">Page / Form</span>
 					<span class="rv">

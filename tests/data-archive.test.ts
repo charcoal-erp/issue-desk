@@ -68,7 +68,7 @@ describe('buildDataExport', () => {
 		expect(manifest.counts.issues).toBe(1);
 		expect(manifest.counts.attachments).toBe(1);
 		expect(manifest.counts.uploadFiles).toBe(1);
-		expect(manifest.counts.users).toBe(4);
+		expect(manifest.counts.users).toBe(5);
 		expect(manifest.counts.applications).toBe(5);
 
 		const parsedManifest = JSON.parse(new TextDecoder().decode(entries['manifest.json']));
@@ -77,6 +77,7 @@ describe('buildDataExport', () => {
 			expect.arrayContaining([
 				'config/users.json',
 				'config/applications.json',
+				'config/categories.json',
 				'config/settings.json',
 				'issues/charcoal/_sequence.json',
 				'issues/charcoal/accounting.json',

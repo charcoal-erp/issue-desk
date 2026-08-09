@@ -193,7 +193,7 @@
 							<div class="ai-body">
 								<b>{userName(issue.reporterId)}</b> reported
 								<button class="mid" onclick={() => openDrawer(issue)}>{issue.id}</button> — {issue.title}
-								<span style="color:var(--faint)">in {issue.appName} / {issue.moduleName}</span>
+								<span style="color:var(--faint)">in {issue.appName}{issue.moduleName ? ` / ${issue.moduleName}` : ''}</span>
 							</div>
 							<div class="ai-time">{relDate(issue.updatedAt)}</div>
 						</div>

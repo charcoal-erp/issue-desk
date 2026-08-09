@@ -1,5 +1,5 @@
-import type { IssueFilter, IssueType, Priority, Status } from './types';
-import { PRIORITIES, STATUSES, ISSUE_TYPES } from './types';
+import type { IssueFilter, IssueType, Priority, Source, Status } from './types';
+import { PRIORITIES, SOURCES, STATUSES, ISSUE_TYPES } from './types';
 
 /**
  * Filters live in the URL query string (§11) so any view is shareable and the
@@ -9,7 +9,7 @@ export function parseFilter(params: URLSearchParams): IssueFilter {
 	const filter: IssueFilter = {};
 	const q = params.get('q')?.trim();
 	if (q) filter.q = q;
-	for (const key of ['appId', 'moduleId', 'reporterId', 'assigneeId', 'tag'] as const) {
+	for (const key of ['appId', 'moduleId', 'reporterId', 'assigneeId', 'categoryId', 'tag'] as const) {
 		const v = params.get(key);
 		if (v) filter[key] = v;
 	}
@@ -19,6 +19,8 @@ export function parseFilter(params: URLSearchParams): IssueFilter {
 	if (status.length) filter.status = status;
 	const priority = params.getAll('priority').filter((p): p is Priority => (PRIORITIES as readonly string[]).includes(p));
 	if (priority.length) filter.priority = priority;
+	const source = params.getAll('source').filter((s): s is Source => (SOURCES as readonly string[]).includes(s));
+	if (source.length) filter.source = source;
 	const updatedFrom = params.get('updatedFrom');
 	if (updatedFrom) filter.updatedFrom = updatedFrom;
 	const updatedTo = params.get('updatedTo');
@@ -38,13 +40,14 @@ export function parseFilter(params: URLSearchParams): IssueFilter {
 export function filterToParams(filter: IssueFilter): URLSearchParams {
 	const params = new URLSearchParams();
 	if (filter.q) params.set('q', filter.q);
-	for (const key of ['appId', 'moduleId', 'reporterId', 'assigneeId', 'tag'] as const) {
+	for (const key of ['appId', 'moduleId', 'reporterId', 'assigneeId', 'categoryId', 'tag'] as const) {
 		const v = filter[key];
 		if (v) params.set(key, v);
 	}
 	if (filter.type) params.set('type', filter.type);
 	for (const s of filter.status ?? []) params.append('status', s);
 	for (const p of filter.priority ?? []) params.append('priority', p);
+	for (const s of filter.source ?? []) params.append('source', s);
 	if (filter.updatedFrom) params.set('updatedFrom', filter.updatedFrom);
 	if (filter.updatedTo) params.set('updatedTo', filter.updatedTo);
 	if (filter.sort) params.set('sort', filter.sort);

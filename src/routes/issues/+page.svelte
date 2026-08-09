@@ -61,6 +61,7 @@
 <section class="screen">
 	<FilterRail
 		applications={data.applications}
+		categories={data.categories}
 		counts={data.counts}
 		filter={data.filter}
 		onChange={(patch) => navigate(patch)}
@@ -87,6 +88,7 @@
 		<FilterChips
 			filter={data.filter}
 			applications={data.applications}
+			categories={data.categories}
 			onChange={(patch) => navigate(patch)}
 			onClearAll={clearAll}
 		/>

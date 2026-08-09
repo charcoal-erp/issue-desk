@@ -25,6 +25,24 @@ export function closeIssueModal(): void {
 	ui.issueModal = null;
 }
 
+/**
+ * The issue form registers a veto here so a half-typed issue cannot be thrown
+ * away by a stray click or an Escape keypress. The guard returns true when it
+ * has taken over the close (by asking the user what to do with their changes);
+ * false means "nothing unsaved, go ahead".
+ */
+let issueModalGuard: null | (() => boolean) = null;
+
+export function registerIssueModalGuard(guard: (() => boolean) | null): void {
+	issueModalGuard = guard;
+}
+
+/** Close the issue modal unless its guard wants to intervene. */
+export function requestCloseIssueModal(): void {
+	if (issueModalGuard?.()) return;
+	ui.issueModal = null;
+}
+
 export function openDrawer(issue: Issue): void {
 	ui.drawerIssue = issue;
 }

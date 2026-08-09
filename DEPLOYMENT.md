@@ -93,17 +93,70 @@ Separately, **a bare `.env` file is not enough** to get a variable into `process
 |---|---|---|
 | `DATA_DIR` | `./data` | Root of all config / issues / uploads |
 | `PUBLIC_BASE_URL` | `http://localhost:5173` | Host used to absolutise attachment URLs in exports |
+| `ORIGIN` | _(unset)_ | The URL the app is served from. Required in production for the login form to be accepted — see [Authentication](#authentication) |
 | `MAX_UPLOAD_MB` | `15` | Per-file size cap |
 | `MAX_ATTACHMENTS` | `10` | Per-issue attachment cap |
 | `WATCH_FILES` | `false` | Re-sync the store when config / issue files are edited by hand |
+| `AUTH_JWT_SECRET` | _(generated)_ | Signing secret for session cookies and API tokens — see [Authentication](#authentication) |
+| `AUTH_TOKEN_TTL_HOURS` | `12` | How long an issued token stays valid |
+| `ISSUEDESK_ADMIN_PASSWORD` | _(generated)_ | First-boot admin password; unset = generated and printed to the log once |
 | `CHECKPOINT_URL` | _(unset)_ | Optional Checkpoint base URL for the "view test case" back-link |
-| `ISSUEDESK_INGEST_TOKEN` | _(unset)_ | Optional bearer token required on `POST /api/issues` |
+| `ISSUEDESK_INGEST_TOKEN` | _(unset)_ | Optional bearer token accepted on `POST /api/issues` in place of a login |
 | `PORT` | `3000` | adapter-node port |
 | `BODY_SIZE_LIMIT` | `512K` | adapter-node request-body cap. Raise it (e.g. `512M`, or `Infinity`) or `POST /api/data/import` and attachment uploads larger than 512 KB will be rejected before the app sees them |
 
 `DATA_DIR` is resolved relative to the process's working directory, so whatever starts the
 server (shell, systemd, Docker, ...) needs its working directory set to the project root — see
 `WorkingDirectory` in the systemd unit below.
+
+## Authentication
+
+Every route — pages and API alike — requires a signed-in account. The browser holds the token in
+an httpOnly cookie; API clients send it as `Authorization: Bearer …`. See
+[docs/AGENT-API.md](docs/AGENT-API.md) for the API side.
+
+Three deployment concerns:
+
+1. **`AUTH_JWT_SECRET`.** Left unset, the server generates a secret on first boot and persists it
+   to `data/auth/jwt-secret.json` (0600), so tokens survive restarts with no setup. **Set it
+   explicitly if you ever run more than one instance** against separate data dirs — otherwise each
+   generates its own secret and rejects tokens minted by the other. Deleting the file rotates the
+   secret and signs everyone out.
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"
+   ```
+
+2. **The first admin.** A fresh `DATA_DIR` has no passwords, so nobody could sign in. On a boot
+   with no credentials at all, the server promotes the first account to admin and gives it a
+   password — `ISSUEDESK_ADMIN_PASSWORD` when set, otherwise a generated one printed to the log
+   **once**:
+
+   ```bash
+   journalctl -u issue-desk | grep -A2 "First run"
+   ```
+
+   Under systemd, prefer setting `ISSUEDESK_ADMIN_PASSWORD` in the `EnvironmentFile` for the
+   first boot so the password is never only in the journal. The bootstrap is skipped as soon as
+   any account has a password, so it cannot reset a running deployment.
+
+3. **`ORIGIN` (or `PROTOCOL_HEADER`/`HOST_HEADER` behind a proxy).** adapter-node rejects form
+   submissions whose `Origin` does not match what it believes it is serving — which, once there is
+   a login *form*, means an unset `ORIGIN` shows up as "Cross-site POST form submissions are
+   forbidden" at sign-in. Set it to the same URL as `PUBLIC_BASE_URL`:
+
+   ```
+   ORIGIN=https://issue-desk.codecoords.com
+   ```
+
+   Behind a reverse proxy that terminates TLS, either set `ORIGIN` or forward the original host
+   and protocol and tell adapter-node to trust them (`PROTOCOL_HEADER=x-forwarded-proto`,
+   `HOST_HEADER=x-forwarded-host`).
+
+**Credentials on disk.** scrypt digests live in `data/auth/credentials.json` at mode 0600,
+alongside the signing secret. `data/auth/` sits outside the roots that `/api/data/export`
+collects, so credentials are never part of a data export or an import — moving data between
+instances moves issues and config, not passwords.
 
 ## Running as a systemd service
 

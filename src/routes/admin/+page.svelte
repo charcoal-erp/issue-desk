@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { invalidateAll } from '$app/navigation';
-	import type { Application, User } from '$lib/types';
+	import type { Application, Category, User } from '$lib/types';
 	import { toast } from '$lib/stores/toasts.svelte';
 	import Avatar from '$lib/components/Avatar.svelte';
 	import AppChip from '$lib/components/AppChip.svelte';
@@ -9,15 +9,28 @@
 
 	let { data } = $props();
 
-	let tab = $state<'apps' | 'users' | 'data' | 'keys'>('apps');
+	let tab = $state<'apps' | 'users' | 'categories' | 'data' | 'keys'>('apps');
 	let editor = $state<
 		| null
 		| { kind: 'user'; user: User | null }
 		| { kind: 'app'; app: Application | null }
+		| { kind: 'category'; category: Category | null }
 	>(null);
 
 	function closeEditor() {
 		editor = null;
+	}
+
+	// A generated password is shown exactly once, right after it is set —
+	// there is no way to read it back afterwards.
+	let issued = $state<{ username: string; password: string } | null>(null);
+	let pwFor = $state<User | null>(null);
+	let pwValue = $state('');
+
+	function openPassword(user: User) {
+		pwFor = user;
+		pwValue = '';
+		issued = null;
 	}
 
 	let importInput = $state<HTMLInputElement | null>(null);
@@ -110,7 +123,8 @@
 		</div>
 		<div class="admin-tabs">
 			<button class="admin-tab" class:on={tab === 'apps'} onclick={() => (tab = 'apps')}>Applications</button>
-			<button class="admin-tab" class:on={tab === 'users'} onclick={() => (tab = 'users')}>Users</button>
+			<button class="admin-tab" class:on={tab === 'users'} onclick={() => (tab = 'users')}>Accounts</button>
+			<button class="admin-tab" class:on={tab === 'categories'} onclick={() => (tab = 'categories')}>Categories</button>
 			<button class="admin-tab" class:on={tab === 'data'} onclick={() => (tab = 'data')}>Data</button>
 			<button class="admin-tab" class:on={tab === 'keys'} onclick={() => (tab = 'keys')}>Keys</button>
 		</div>
@@ -297,31 +311,122 @@
 					{/if}
 				</div>
 			</div>
-		{:else}
+		{:else if tab === 'categories'}
 			<div class="admin-panel on">
 				<div class="admin-card-head">
-					<h3>Users</h3>
-					<button class="btn btn-primary btn-sm" onclick={() => (editor = { kind: 'user', user: null })}>
-						<Icon name="plus" />Add user
+					<h3>Categories</h3>
+					<button class="btn btn-primary btn-sm" onclick={() => (editor = { kind: 'category', category: null })}>
+						<Icon name="plus" />Add category
 					</button>
+				</div>
+				<div class="data-card data-pad">
+					<p class="data-desc">
+						What an issue is <b>about</b> — as opposed to the application and module, which say
+						where it lives. Agents pull work a category at a time
+						(<code>GET /api/agent/issues?category=…</code>), so these slugs are part of your API
+						surface: renaming an id changes what an agent must ask for. Tags stay free-form and
+						filter separately.
+					</p>
 				</div>
 				<div class="data-card">
 					<table>
 						<thead>
-							<tr><th>Name</th><th>ID</th><th>Role</th><th>Assignable</th><th>Reported</th><th>Assigned</th></tr>
+							<tr><th>Category</th><th>ID</th><th>Description</th><th></th></tr>
+						</thead>
+						<tbody>
+							{#each data.categories as category (category.id)}
+								<tr class="rowbtn" onclick={() => (editor = { kind: 'category', category })}>
+									<td><AppChip name={category.name} color={category.color} bold /></td>
+									<td style="font-family:var(--font-mono);font-size:12px;color:var(--muted)">{category.id}</td>
+									<td style="color:var(--muted)">{category.description ?? '—'}</td>
+									<td style="text-align:right">
+										<form
+											method="POST"
+											action="?/removeCategory"
+											use:enhance={() => async ({ result }) => {
+												if (result.type === 'success') {
+													await invalidateAll();
+													toast('Category removed', 'Issues using it keep the id and show as uncategorised.');
+												}
+											}}
+										>
+											<input type="hidden" name="id" value={category.id} />
+											<button
+												class="btn btn-ghost btn-sm"
+												type="submit"
+												onclick={(e) => e.stopPropagation()}
+												aria-label="Remove {category.name}"><Icon name="trash" /></button
+											>
+										</form>
+									</td>
+								</tr>
+							{/each}
+							{#if !data.categories.length}
+								<tr><td colspan="4" style="color:var(--faint)">No categories yet.</td></tr>
+							{/if}
+						</tbody>
+					</table>
+				</div>
+			</div>
+		{:else}
+			<div class="admin-panel on">
+				<div class="admin-card-head">
+					<h3>Accounts</h3>
+					<button class="btn btn-primary btn-sm" onclick={() => (editor = { kind: 'user', user: null })}>
+						<Icon name="plus" />Add account
+					</button>
+				</div>
+				<div class="data-card data-pad">
+					<p class="data-desc">
+						Everyone signs in with a username and password. <b>Agent</b> accounts are the same
+						thing for a Claude Code session: it posts those credentials to
+						<code>/api/auth/login</code>, gets a JWT and works through issues under its own name.
+						An account with no password cannot sign in at all — set one below.
+					</p>
+				</div>
+				<div class="data-card">
+					<table>
+						<thead>
+							<tr><th>Name</th><th>Username</th><th>Kind</th><th>Sign-in</th><th>Assignable</th><th>Reported</th><th>Assigned</th><th></th></tr>
 						</thead>
 						<tbody>
 							{#each data.users as user (user.id)}
 								<tr class="rowbtn" onclick={() => (editor = { kind: 'user', user })}>
-									<td><div class="assignee-cell"><Avatar {user} /><b>{user.name}</b></div></td>
-									<td style="font-family:var(--font-mono);font-size:12px;color:var(--muted)">{user.id}</td>
-									<td><span class="role-tag">{user.role}</span></td>
+									<td>
+										<div class="assignee-cell">
+											<Avatar {user} /><b>{user.name}</b>
+											{#if user.admin}<span class="role-tag" style="color:var(--accent-ink)">admin</span>{/if}
+											{#if user.active === false}<span class="role-tag" style="color:var(--open)">inactive</span>{/if}
+										</div>
+									</td>
+									<td style="font-family:var(--font-mono);font-size:12px;color:var(--muted)">{user.username ?? user.id}</td>
+									<td>
+										<span class="role-tag" style={user.kind === 'agent' ? 'color:#a2650e' : ''}>
+											{user.kind === 'agent' ? 'Agent' : 'Human'}
+										</span>
+									</td>
+									<td>
+										{#if data.credentialed[user.id]}
+											<span class="pw-ok">Password set</span>
+										{:else}
+											<span class="pw-none">No password</span>
+										{/if}
+									</td>
 									<td>
 										{#if user.assignable}<span class="role-tag" style="color:var(--accent-ink)">Yes</span
 											>{:else}<span style="color:var(--faint)">—</span>{/if}
 									</td>
 									<td>{data.perUser[user.id]?.reported ?? 0}</td>
 									<td>{data.perUser[user.id]?.assigned ?? 0}</td>
+									<td style="text-align:right">
+										<button
+											class="btn btn-ghost btn-sm"
+											onclick={(e) => {
+												e.stopPropagation();
+												openPassword(user);
+											}}><Icon name="key" />Password</button
+										>
+									</td>
 								</tr>
 							{/each}
 						</tbody>
@@ -334,8 +439,11 @@
 
 {#if editor}
 	{@const isUser = editor.kind === 'user'}
+	{@const isCategory = editor.kind === 'category'}
 	{@const editingUser = editor.kind === 'user' ? editor.user : null}
 	{@const editingApp = editor.kind === 'app' ? editor.app : null}
+	{@const editingCategory = editor.kind === 'category' ? editor.category : null}
+	{@const configFile = isUser ? 'users' : isCategory ? 'categories' : 'applications'}
 	<div
 		class="backdrop"
 		role="presentation"
@@ -348,23 +456,27 @@
 				<div class="mh-icon"><Icon name={isUser ? 'user' : 'gear'} /></div>
 				<div>
 					<h2>
-						{isUser
-							? editingUser ? `Edit ${editingUser.name}` : 'Add user'
-							: editingApp ? `Edit ${editingApp.name}` : 'Add application'}
+						{#if isUser}
+							{editingUser ? `Edit ${editingUser.name}` : 'Add account'}
+						{:else if isCategory}
+							{editingCategory ? `Edit ${editingCategory.name}` : 'Add category'}
+						{:else}
+							{editingApp ? `Edit ${editingApp.name}` : 'Add application'}
+						{/if}
 					</h2>
-					<div class="mh-sub">Writes to data/config/{isUser ? 'users' : 'applications'}.json</div>
+					<div class="mh-sub">Writes to data/config/{configFile}.json</div>
 				</div>
 				<button class="x" onclick={closeEditor} aria-label="Close"><Icon name="x" /></button>
 			</div>
 			<form
 				method="POST"
-				action={isUser ? '?/upsertUser' : '?/upsertApplication'}
+				action={isUser ? '?/upsertUser' : isCategory ? '?/upsertCategory' : '?/upsertApplication'}
 				use:enhance={() => {
 					return async ({ result }) => {
 						if (result.type === 'success') {
 							closeEditor();
 							await invalidateAll();
-							toast('Saved', `data/config/${isUser ? 'users' : 'applications'}.json updated`);
+							toast('Saved', `data/config/${configFile}.json updated`);
 						} else if (result.type === 'failure') {
 							toast('Could not save', String(result.data?.message ?? ''));
 						}
@@ -390,11 +502,59 @@
 								<label for="a-color">Avatar colour <span class="hint">· hex</span></label>
 								<input class="inp" id="a-color" name="avatarColor" value={editingUser?.avatarColor ?? '#5B4BFF'} placeholder="#5B4BFF" />
 							</div>
+							<div class="field">
+								<label for="a-username">Username <span class="hint">· for signing in</span></label>
+								<input
+									class="inp"
+									id="a-username"
+									name="username"
+									value={editingUser?.username ?? editingUser?.id ?? ''}
+									placeholder="defaults to the ID"
+									autocapitalize="none"
+									spellcheck="false"
+								/>
+							</div>
+							<div class="field">
+								<label for="a-kind">Kind</label>
+								<select class="inp" id="a-kind" name="kind" value={editingUser?.kind ?? 'human'}>
+									<option value="human">Human — signs in through the browser</option>
+									<option value="agent">Agent — signs in over the API</option>
+								</select>
+							</div>
 							<div class="field full">
 								<label class="chkline">
 									<input type="checkbox" name="assignable" checked={editingUser?.assignable ?? false} />
 									Assignable <span class="hint">· appears in the assignee dropdown</span>
 								</label>
+							</div>
+							<div class="field full">
+								<label class="chkline">
+									<input type="checkbox" name="admin" checked={editingUser?.admin ?? false} />
+									Administrator <span class="hint">· may reach Config and manage passwords</span>
+								</label>
+							</div>
+							<div class="field full">
+								<label class="chkline">
+									<input type="checkbox" name="active" value="on" checked={editingUser?.active !== false} />
+									Active <span class="hint">· unchecked blocks sign-in but keeps history</span>
+								</label>
+							</div>
+						{:else if isCategory}
+							<div class="field">
+								<label for="a-id">ID <span class="hint">· slug, used by the agent API</span></label>
+								<input class="inp" id="a-id" name="id" value={editingCategory?.id ?? ''} readonly={!!editingCategory} placeholder="authentication" />
+							</div>
+							<div class="field">
+								<label for="a-name">Name</label>
+								<input class="inp" id="a-name" name="name" value={editingCategory?.name ?? ''} placeholder="Authentication" />
+							</div>
+							<div class="field">
+								<label for="a-color">Colour <span class="hint">· hex</span></label>
+								<input class="inp" id="a-color" name="color" value={editingCategory?.color ?? '#5B4BFF'} placeholder="#5B4BFF" />
+							</div>
+							<div class="field full">
+								<label for="a-desc">Description <span class="hint">· what belongs here</span></label>
+								<input class="inp" id="a-desc" name="description" value={editingCategory?.description ?? ''} placeholder="Login, sessions, tokens and permissions" />
 							</div>
 						{:else}
 							<div class="field">
@@ -432,9 +592,155 @@
 	</div>
 {/if}
 
+{#if pwFor}
+	<div
+		class="backdrop"
+		role="presentation"
+		onclick={(e) => {
+			if (e.target === e.currentTarget) pwFor = null;
+		}}
+	>
+		<div class="modal" style="max-width:520px" role="dialog" aria-modal="true">
+			<div class="modal-head">
+				<div class="mh-icon"><Icon name="key" /></div>
+				<div>
+					<h2>Password — {pwFor.name}</h2>
+					<div class="mh-sub">Signs in as <b>{pwFor.username ?? pwFor.id}</b></div>
+				</div>
+				<button class="x" onclick={() => (pwFor = null)} aria-label="Close"><Icon name="x" /></button>
+			</div>
+
+			{#if issued}
+				<div class="modal-body">
+					<p class="data-desc">
+						Password set. <b>Copy it now</b> — it is not stored in a readable form and cannot be
+						shown again.
+					</p>
+					<div class="pw-issued">
+						<div><span class="pw-lbl">Username</span><code>{issued.username}</code></div>
+						<div><span class="pw-lbl">Password</span><code>{issued.password}</code></div>
+					</div>
+					<p class="data-desc" style="margin-top:12px">
+						For an agent account, this is what a Claude Code session posts to
+						<code>/api/auth/login</code>.
+					</p>
+				</div>
+				<div class="modal-foot">
+					<div class="ff"></div>
+					<button
+						type="button"
+						class="btn btn-ghost"
+						onclick={() => navigator.clipboard.writeText(issued!.password).then(() => toast('Copied', 'Password on the clipboard.'))}
+						>Copy password</button
+					>
+					<button type="button" class="btn btn-primary" onclick={() => (pwFor = null)}>Done</button>
+				</div>
+			{:else}
+				<form
+					method="POST"
+					action="?/setPassword"
+					use:enhance={() => {
+						return async ({ result }) => {
+							if (result.type === 'success') {
+								await invalidateAll();
+								const generated = result.data?.generatedPassword as string | undefined;
+								if (generated) {
+									issued = { username: String(result.data?.username ?? ''), password: generated };
+								} else {
+									pwFor = null;
+									toast('Password set', 'Existing tokens for this account are now invalid.');
+								}
+							} else if (result.type === 'failure') {
+								toast('Could not set password', String(result.data?.message ?? ''));
+							}
+						};
+					}}
+				>
+					<div class="modal-body">
+						<input type="hidden" name="userId" value={pwFor.id} />
+						<p class="data-desc">
+							Setting a password invalidates any token this account is currently using — a
+							deliberate way to cut off an agent that has gone astray.
+						</p>
+						<div class="field full">
+							<label for="pw">New password <span class="hint">· leave blank to generate one</span></label>
+							<input
+								class="inp"
+								id="pw"
+								name="password"
+								type="text"
+								bind:value={pwValue}
+								placeholder="Generate a strong one"
+								autocomplete="new-password"
+								style="font-family:var(--font-mono)"
+							/>
+						</div>
+					</div>
+					<div class="modal-foot">
+						{#if data.credentialed[pwFor.id]}
+							<button
+								type="submit"
+								class="btn btn-ghost danger"
+								formaction="?/clearPassword"
+								onclick={(e) => {
+									if (!confirm(`Remove ${pwFor?.name}'s password? They will not be able to sign in.`)) {
+										e.preventDefault();
+									}
+								}}>Remove password</button
+							>
+						{/if}
+						<div class="ff"></div>
+						<button type="button" class="btn btn-ghost" onclick={() => (pwFor = null)}>Cancel</button>
+						<button type="submit" class="btn btn-primary">
+							{pwValue.trim() ? 'Set password' : 'Generate password'}
+						</button>
+					</div>
+				</form>
+			{/if}
+		</div>
+	</div>
+{/if}
+
 <style>
 	.rowbtn {
 		cursor: pointer;
+	}
+	.pw-ok {
+		font-size: 12px;
+		color: var(--done);
+	}
+	.pw-none {
+		font-size: 12px;
+		color: var(--faint);
+	}
+	.pw-issued {
+		display: grid;
+		gap: 8px;
+		padding: 14px;
+		border-radius: var(--radius-sm);
+		background: var(--term-bg);
+	}
+	.pw-issued div {
+		display: flex;
+		align-items: baseline;
+		gap: 10px;
+	}
+	.pw-lbl {
+		width: 74px;
+		flex: none;
+		font-size: 11px;
+		text-transform: uppercase;
+		letter-spacing: 0.04em;
+		color: var(--term-muted);
+	}
+	.pw-issued code {
+		font-family: var(--font-mono);
+		font-size: 13px;
+		color: var(--term-str);
+		word-break: break-all;
+	}
+	.danger {
+		color: var(--open);
 	}
 	.rowbtn:hover {
 		background: var(--accent-soft-2);

@@ -6,27 +6,33 @@ export class IssueIndexes {
 	byModule = new Map<string, Set<string>>(); // key: `${appId}/${moduleId}`
 	byStatus = new Map<string, Set<string>>();
 	byPriority = new Map<string, Set<string>>();
+	bySource = new Map<string, Set<string>>();
 	byAssignee = new Map<string, Set<string>>();
 	byReporter = new Map<string, Set<string>>();
+	byCategory = new Map<string, Set<string>>();
 	byTag = new Map<string, Set<string>>();
 
 	add(issue: Issue): void {
 		put(this.byApp, issue.appId, issue.id);
-		put(this.byModule, `${issue.appId}/${issue.moduleId}`, issue.id);
+		if (issue.moduleId) put(this.byModule, `${issue.appId}/${issue.moduleId}`, issue.id);
 		put(this.byStatus, issue.status, issue.id);
 		put(this.byPriority, issue.priority, issue.id);
+		put(this.bySource, issue.source, issue.id);
 		if (issue.assigneeId) put(this.byAssignee, issue.assigneeId, issue.id);
 		put(this.byReporter, issue.reporterId, issue.id);
+		if (issue.categoryId) put(this.byCategory, issue.categoryId, issue.id);
 		for (const tag of issue.tags) put(this.byTag, tag, issue.id);
 	}
 
 	remove(issue: Issue): void {
 		drop(this.byApp, issue.appId, issue.id);
-		drop(this.byModule, `${issue.appId}/${issue.moduleId}`, issue.id);
+		if (issue.moduleId) drop(this.byModule, `${issue.appId}/${issue.moduleId}`, issue.id);
 		drop(this.byStatus, issue.status, issue.id);
 		drop(this.byPriority, issue.priority, issue.id);
+		drop(this.bySource, issue.source, issue.id);
 		if (issue.assigneeId) drop(this.byAssignee, issue.assigneeId, issue.id);
 		drop(this.byReporter, issue.reporterId, issue.id);
+		if (issue.categoryId) drop(this.byCategory, issue.categoryId, issue.id);
 		for (const tag of issue.tags) drop(this.byTag, tag, issue.id);
 	}
 

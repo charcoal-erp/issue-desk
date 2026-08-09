@@ -40,7 +40,7 @@
 	</td>
 	<td>
 		<AppChip name={issue.appName} color={appColor} />
-		<div class="module-txt">{issue.moduleName}</div>
+		<div class="module-txt">{issue.moduleName ?? '—'}</div>
 	</td>
 	<td>
 		<span class="prio">

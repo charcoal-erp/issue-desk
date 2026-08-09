@@ -4,6 +4,7 @@ import { unzipSync, zipSync, type Zippable } from 'fflate';
 import { z } from 'zod';
 import {
 	applicationSchema,
+	categorySchema,
 	issueSchema,
 	sequenceSchema,
 	settingsSchema,
@@ -15,7 +16,7 @@ import { withLock } from '../store/mutex';
 
 /**
  * Full IssueDesk data snapshot as a single zip: `config/` (users, applications,
- * settings), `issues/` (per-module JSON + sequence counters) and `uploads/`
+ * categories, settings), `issues/` (per-module JSON + sequence counters) and `uploads/`
  * (attachment binaries). Checkpoint content (tests/suites/runs/runners/reports)
  * is deliberately NOT included — this is the issue-tracker's data, exportable
  * for backups and re-loadable on another instance.
@@ -182,6 +183,7 @@ function classifyEntry(segments: string[]): { validate?: z.ZodType<unknown> } | 
 		if (rest[0] === 'users.json') return { validate: z.array(userSchema) };
 		if (rest[0] === 'applications.json') return { validate: z.array(applicationSchema) };
 		if (rest[0] === 'settings.json') return { validate: settingsSchema };
+		if (rest[0] === 'categories.json') return { validate: z.array(categorySchema) };
 		return 'ignore';
 	}
 	if (root === 'issues' && rest.length === 2 && rest[1].endsWith('.json')) {

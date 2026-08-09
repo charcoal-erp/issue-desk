@@ -4,10 +4,12 @@ import { v7 as uuidv7 } from 'uuid';
 import type {
 	Application,
 	Attachment,
+	Category,
 	CreateIssueInput,
 	Issue,
 	IssueFilter,
 	Settings,
+	Source,
 	UpdateIssueInput,
 	User
 } from '$lib/types';
@@ -17,13 +19,14 @@ import { configDir, dataDir, moduleFile, sequenceFile } from '../fs/paths';
 import {
 	loadAllIssues,
 	loadApplications,
+	loadCategories,
 	loadSequence,
 	loadSettings,
 	loadUsers
 } from '../fs/read';
 import { writeJsonAtomic } from '../fs/write';
 import { deleteUploadFile, movePendingUploads } from '../uploads';
-import { seedDataDir } from './seed';
+import { SEED_CATEGORIES, seedDataDir } from './seed';
 import { IssueIndexes, intersect, unionOf } from './indexes';
 import { withLock } from './mutex';
 
@@ -38,6 +41,7 @@ let loadPromise: Promise<void> | undefined;
 
 let usersList: User[] = [];
 let appsList: Application[] = [];
+let categoriesList: Category[] = [];
 let settingsObj: Settings = { productName: 'IssueDesk', defaultPageSize: 50 };
 
 const byId = new Map<string, Issue>();
@@ -57,6 +61,7 @@ async function load(): Promise<void> {
 	await bootstrapIfEmpty();
 	usersList = await loadUsers();
 	appsList = await loadApplications();
+	categoriesList = await ensureCategoriesFile();
 	settingsObj = await loadSettings();
 	byId.clear();
 	clearIndexes();
@@ -71,6 +76,22 @@ async function load(): Promise<void> {
 		sequences.set(app.id, seq ?? { code: app.code, next: 1 });
 	}
 	loaded = true;
+}
+
+/**
+ * Categories arrived after the first data dirs were written, so a dir without
+ * the file gets the starter vocabulary rather than an empty picker. Written
+ * once — after that the file is authoritative, empty list included.
+ */
+async function ensureCategoriesFile(): Promise<Category[]> {
+	const file = path.join(configDir(), 'categories.json');
+	try {
+		await access(file);
+	} catch {
+		await writeJsonAtomic(file, SEED_CATEGORIES);
+		return SEED_CATEGORIES;
+	}
+	return loadCategories();
 }
 
 export async function ensureLoaded(): Promise<void> {
@@ -91,6 +112,9 @@ export function users(): User[] {
 }
 export function applications(): Application[] {
 	return appsList;
+}
+export function categories(): Category[] {
+	return categoriesList;
 }
 export function settings(): Settings {
 	return settingsObj;
@@ -122,8 +146,10 @@ export function list(filter: IssueFilter): { rows: Issue[]; total: number } {
 			: undefined,
 		unionOf(indexes.byStatus, filter.status),
 		unionOf(indexes.byPriority, filter.priority),
+		unionOf(indexes.bySource, filter.source),
 		filter.assigneeId ? (indexes.byAssignee.get(filter.assigneeId) ?? new Set()) : undefined,
 		filter.reporterId ? (indexes.byReporter.get(filter.reporterId) ?? new Set()) : undefined,
+		filter.categoryId ? (indexes.byCategory.get(filter.categoryId) ?? new Set()) : undefined,
 		filter.tag ? (indexes.byTag.get(filter.tag) ?? new Set()) : undefined
 	]);
 	let rows = candidateSet
@@ -135,7 +161,7 @@ export function list(filter: IssueFilter): { rows: Issue[]; total: number } {
 	if (filter.q) {
 		const q = filter.q.toLowerCase();
 		rows = rows.filter((i) =>
-			`${i.id} ${i.title} ${i.description} ${i.moduleName} ${i.tags.join(' ')}`
+			`${i.id} ${i.title} ${i.description} ${i.moduleName ?? ''} ${i.tags.join(' ')}`
 				.toLowerCase()
 				.includes(q)
 		);
@@ -189,27 +215,51 @@ export function list(filter: IssueFilter): { rows: Issue[]; total: number } {
 }
 
 // ---------- persistence helpers ----------
-async function persistModule(appId: string, moduleId: string): Promise<void> {
-	const group = [...byId.values()]
-		.filter((i) => i.appId === appId && i.moduleId === moduleId)
-		.sort((a, b) => a.seq - b.seq);
-	await writeJsonAtomic(moduleFile(appId, moduleId), group);
+/**
+ * Which file an issue lives in. Module is optional, so module-less issues need
+ * a home: `unassigned.json`. Grouping and filtering both go through this one
+ * function, so an app that happens to have a real module called "unassigned"
+ * simply shares the file rather than the two halves overwriting each other.
+ */
+export const UNASSIGNED_MODULE_FILE = 'unassigned';
+
+function moduleFileKey(issue: Issue): string {
+	return issue.moduleId || UNASSIGNED_MODULE_FILE;
 }
 
-/** Resolve the app + module labels (the only seeded taxonomy). */
-function denormalise(input: { appId: string; moduleId: string }) {
+async function persistModule(appId: string, fileKey: string): Promise<void> {
+	const group = [...byId.values()]
+		.filter((i) => i.appId === appId && moduleFileKey(i) === fileKey)
+		.sort((a, b) => a.seq - b.seq);
+	await writeJsonAtomic(moduleFile(appId, fileKey), group);
+}
+
+/**
+ * Resolve the app + module labels (the only seeded taxonomy). An absent module
+ * is valid and leaves the module fields unset; a *named* module that doesn't
+ * exist is still an error.
+ */
+function denormalise(input: { appId: string; moduleId?: string }) {
 	const app = appsList.find((a) => a.id === input.appId);
 	if (!app) throw new Error(`Unknown application "${input.appId}"`);
+	const base = { appId: app.id, appCode: app.code, appName: app.name };
+	if (!input.moduleId) {
+		return { ...base, moduleId: undefined, moduleCode: undefined, moduleName: undefined };
+	}
 	const mod = app.modules.find((m) => m.id === input.moduleId);
 	if (!mod) throw new Error(`Unknown module "${input.moduleId}" in ${app.name}`);
-	return {
-		appId: app.id,
-		appCode: app.code,
-		appName: app.name,
-		moduleId: mod.id,
-		moduleCode: mod.code,
-		moduleName: mod.name
-	};
+	return { ...base, moduleId: mod.id, moduleCode: mod.code, moduleName: mod.name };
+}
+
+/**
+ * Where an issue came from, decided by who filed it rather than by a dropdown.
+ * The Checkpoint ingest path has no session, so the route passes the source
+ * explicitly; everything else follows the account kind.
+ */
+export function sourceFor(actorId: string): Source {
+	return usersList.find((u) => u.id === actorId)?.kind === 'agent'
+		? 'agent-testing'
+		: 'manual-testing';
 }
 
 /** Page/form are free text; a leading-slash value is treated as a route path. */
@@ -227,7 +277,8 @@ function pageFields(page?: string, form?: string) {
 export async function create(
 	input: CreateIssueInput,
 	actor: string,
-	draftId?: string
+	draftId?: string,
+	source?: Source
 ): Promise<Issue> {
 	await ensureLoaded();
 	return withLock(`app:${input.appId}`, async () => {
@@ -253,8 +304,10 @@ export async function create(
 			...pageFields(input.page, input.form),
 			priority: input.priority,
 			status: input.status,
+			source: source ?? sourceFor(actor),
 			reporterId: actor,
 			assigneeId: input.assigneeId || undefined,
+			categoryId: input.categoryId || undefined,
 			tags: input.tags,
 			attachments,
 			testCaseId: input.testCaseId,
@@ -266,20 +319,38 @@ export async function create(
 		byId.set(id, issue);
 		indexes.add(issue);
 		await writeJsonAtomic(sequenceFile(app.id), sequences.get(app.id));
-		await persistModule(app.id, issue.moduleId);
+		await persistModule(app.id, moduleFileKey(issue));
 		return issue;
 	});
 }
 
 export async function update(id: string, patch: UpdateIssueInput, actor: string): Promise<Issue> {
 	await ensureLoaded();
-	const before = byId.get(id);
-	if (!before) throw new Error(`Issue ${id} not found`);
-	return withLock(`app:${before.appId}`, async () => {
+	const existing = byId.get(id);
+	if (!existing) throw new Error(`Issue ${id} not found`);
+	return withLock(`app:${existing.appId}`, async () => {
+		// Re-read inside the lock: another writer may have landed while we queued.
+		const before = byId.get(id);
+		if (!before) throw new Error(`Issue ${id} not found`);
+		return applyUpdate(before, patch, actor);
+	});
+}
+
+/**
+ * The update body, minus the locking. Callers must already hold
+ * `app:<appId>` — `update` and `claim` both do. Split out so a claim can
+ * read-check-and-write as one atomic step: two agents asking for work at the
+ * same moment must not both walk away with the same issue.
+ */
+async function applyUpdate(before: Issue, patch: UpdateIssueInput, actor: string): Promise<Issue> {
+	const id = before.id;
+	{
 		const now = new Date().toISOString();
 		const loc = denormalise({
 			appId: before.appId, // app never changes — the ID is per-app
-			moduleId: patch.moduleId ?? before.moduleId
+			// `moduleId: ''` is how the form clears the module; `undefined` means
+			// "not part of this patch" and keeps whatever the issue already had.
+			moduleId: patch.moduleId !== undefined ? patch.moduleId || undefined : before.moduleId
 		});
 		const page = patch.page !== undefined ? patch.page : before.pagePath;
 		const form = patch.form !== undefined ? patch.form : before.formName;
@@ -294,6 +365,8 @@ export async function update(id: string, patch: UpdateIssueInput, actor: string)
 			status: patch.status ?? before.status,
 			assigneeId:
 				patch.assigneeId !== undefined ? patch.assigneeId || undefined : before.assigneeId,
+			categoryId:
+				patch.categoryId !== undefined ? patch.categoryId || undefined : before.categoryId,
 			tags: patch.tags ?? before.tags,
 			attachments: patch.attachments ?? before.attachments,
 			activity: [...before.activity],
@@ -328,9 +401,48 @@ export async function update(id: string, patch: UpdateIssueInput, actor: string)
 
 		byId.set(id, after);
 		indexes.update(before, after);
-		await persistModule(after.appId, after.moduleId);
-		if (after.moduleId !== before.moduleId) await persistModule(before.appId, before.moduleId);
+		await persistModule(after.appId, moduleFileKey(after));
+		// Moving between modules rewrites both files, or the issue would exist in
+		// two places on disk until something else touched the old one.
+		if (moduleFileKey(after) !== moduleFileKey(before)) {
+			await persistModule(before.appId, moduleFileKey(before));
+		}
 		return after;
+	}
+}
+
+/** Why a claim was refused — each maps to a distinct API response. */
+export type ClaimRefusal = 'not-found' | 'taken' | 'not-claimable';
+export type ClaimResult =
+	| { ok: true; issue: Issue }
+	| { ok: false; reason: ClaimRefusal; issue?: Issue };
+
+/**
+ * Take ownership of an issue: assign it to `actor` and move it to in-progress,
+ * but only if it is genuinely free. The check and the write happen under one
+ * lock, so of two agents claiming the same issue exactly one wins and the other
+ * is told it is taken.
+ *
+ * Re-claiming something you already hold succeeds — an agent that retries after
+ * a dropped connection should not be punished for it.
+ */
+export async function claim(id: string, actor: string): Promise<ClaimResult> {
+	await ensureLoaded();
+	const existing = byId.get(id);
+	if (!existing) return { ok: false, reason: 'not-found' };
+
+	return withLock(`app:${existing.appId}`, async () => {
+		const before = byId.get(id);
+		if (!before) return { ok: false, reason: 'not-found' };
+		if (before.assigneeId && before.assigneeId !== actor) {
+			return { ok: false, reason: 'taken', issue: before };
+		}
+		// Verified and closed work is nobody's to pick up.
+		if (before.status !== 'open' && before.status !== 'in-progress') {
+			return { ok: false, reason: 'not-claimable', issue: before };
+		}
+		const issue = await applyUpdate(before, { assigneeId: actor, status: 'in-progress' }, actor);
+		return { ok: true, issue };
 	});
 }
 
@@ -341,7 +453,7 @@ export async function remove(id: string, _actor: string): Promise<void> {
 	await withLock(`app:${issue.appId}`, async () => {
 		byId.delete(id);
 		indexes.remove(issue);
-		await persistModule(issue.appId, issue.moduleId);
+		await persistModule(issue.appId, moduleFileKey(issue));
 	});
 }
 
@@ -372,7 +484,7 @@ export async function comment(id: string, message: string, actor: string): Promi
 		};
 		byId.set(id, after);
 		indexes.update(before, after);
-		await persistModule(after.appId, after.moduleId);
+		await persistModule(after.appId, moduleFileKey(after));
 		return after;
 	});
 }
@@ -399,10 +511,31 @@ export async function upsertApplication(app: Application): Promise<void> {
 	// Denormalised labels on issues refresh lazily on next edit (§8).
 }
 
+export async function upsertCategory(category: Category): Promise<void> {
+	await ensureLoaded();
+	const i = categoriesList.findIndex((c) => c.id === category.id);
+	if (i >= 0) categoriesList[i] = category;
+	else categoriesList.push(category);
+	await writeJsonAtomic(path.join(configDir(), 'categories.json'), categoriesList);
+}
+
+/**
+ * Removing a category leaves `categoryId` dangling on issues that used it —
+ * they stay listed and simply show as uncategorised, which is preferable to
+ * rewriting every module file to chase a config edit.
+ */
+export async function removeCategory(id: string): Promise<void> {
+	await ensureLoaded();
+	const next = categoriesList.filter((c) => c.id !== id);
+	if (next.length === categoriesList.length) return;
+	categoriesList = next;
+	await writeJsonAtomic(path.join(configDir(), 'categories.json'), categoriesList);
+}
+
 function clearIndexes(): void {
 	for (const map of [
 		indexes.byApp, indexes.byModule, indexes.byStatus, indexes.byPriority,
-		indexes.byAssignee, indexes.byReporter, indexes.byTag
+		indexes.bySource, indexes.byAssignee, indexes.byReporter, indexes.byCategory, indexes.byTag
 	])
 		map.clear();
 }
@@ -413,6 +546,7 @@ export function __resetForTests(): void {
 	loadPromise = undefined;
 	usersList = [];
 	appsList = [];
+	categoriesList = [];
 	byId.clear();
 	sequences.clear();
 	clearIndexes();

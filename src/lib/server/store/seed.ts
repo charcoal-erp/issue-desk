@@ -1,6 +1,6 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import type { Application, User } from '$lib/types';
+import type { Application, Category, User } from '$lib/types';
 import { configDir, issuesDir } from '../fs/paths';
 import { writeJsonAtomic } from '../fs/write';
 
@@ -11,11 +11,32 @@ import { writeJsonAtomic } from '../fs/write';
  */
 
 // Reporters can be anyone; only `assignable` users appear in the assignee list.
+// The first account is the admin — first boot gives it a password (see
+// `bootstrapAdmin`), and everyone else gets one from Config → Accounts.
 export const SEED_USERS: User[] = [
-	{ id: 'kiran', name: 'Kiran Kharade', role: 'Architect', avatarColor: '#5B4BFF', assignable: true },
-	{ id: 'anant', name: 'Anant Kharade', role: 'QA', avatarColor: '#2FA36B', assignable: false },
-	{ id: 'aadinath', name: 'Aadinath Kharade', role: 'Tester', avatarColor: '#F5A623', assignable: false },
-	{ id: 'tushar', name: 'Tushar Kulange', role: 'Developer', avatarColor: '#0891B2', assignable: true }
+	{ id: 'kiran', name: 'Kiran Kharade', role: 'Architect', avatarColor: '#5B4BFF', assignable: true, kind: 'human', admin: true },
+	{ id: 'anant', name: 'Anant Kharade', role: 'QA', avatarColor: '#2FA36B', assignable: false, kind: 'human' },
+	{ id: 'aadinath', name: 'Aadinath Kharade', role: 'Tester', avatarColor: '#F5A623', assignable: false, kind: 'human' },
+	{ id: 'tushar', name: 'Tushar Kulange', role: 'Developer', avatarColor: '#0891B2', assignable: true, kind: 'human' },
+	// The account a Claude Code session signs in as. Assignable, so claimed work
+	// shows up against it; no password until an admin sets one.
+	{ id: 'claude-agent', name: 'Claude Agent', role: 'AI Agent', avatarColor: '#C15F3C', assignable: true, kind: 'agent' }
+];
+
+/**
+ * Starter category vocabulary — what an issue is *about*, as opposed to the
+ * app/module taxonomy that says where it lives. Edit freely under Config;
+ * these are only what a fresh data dir starts with.
+ */
+export const SEED_CATEGORIES: Category[] = [
+	{ id: 'functionality', name: 'Functionality', description: 'Feature does not behave as specified', color: '#5B4BFF' },
+	{ id: 'ui-ux', name: 'UI / UX', description: 'Layout, styling, copy and interaction problems', color: '#DB2777' },
+	{ id: 'data-integrity', name: 'Data integrity', description: 'Wrong, missing or corrupted data', color: '#B91C1C' },
+	{ id: 'performance', name: 'Performance', description: 'Slow responses, timeouts, resource use', color: '#D97706' },
+	{ id: 'security', name: 'Security', description: 'Access control, validation, exposure of secrets', color: '#7C3AED' },
+	{ id: 'integration', name: 'Integration', description: 'Third-party services and cross-app links', color: '#0891B2' },
+	{ id: 'reporting', name: 'Reporting', description: 'Dashboards, exports and printed output', color: '#2FA36B' },
+	{ id: 'documentation', name: 'Documentation', description: 'Help text, guides and API docs', color: '#64748B' }
 ];
 
 // pages: [] everywhere — page/form are captured as free text on each issue.
@@ -92,6 +113,7 @@ export async function seedDataDir(): Promise<void> {
 	await mkdir(configDir(), { recursive: true });
 	await writeJsonAtomic(path.join(configDir(), 'users.json'), SEED_USERS);
 	await writeJsonAtomic(path.join(configDir(), 'applications.json'), SEED_APPS);
+	await writeJsonAtomic(path.join(configDir(), 'categories.json'), SEED_CATEGORIES);
 	await writeJsonAtomic(path.join(configDir(), 'settings.json'), {
 		productName: 'IssueDesk',
 		defaultPageSize: 50

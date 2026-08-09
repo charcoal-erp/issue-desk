@@ -23,6 +23,7 @@ const issue: Issue = {
 	formName: 'Journal Entry',
 	priority: 'critical',
 	status: 'open',
+	source: 'manual-testing',
 	reporterId: 'anant',
 	assigneeId: 'kiran',
 	tags: ['accounting'],

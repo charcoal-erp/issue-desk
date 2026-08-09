@@ -12,9 +12,9 @@
 	import {
 		closeDrawer,
 		closeExport,
-		closeIssueModal,
 		closeLightbox,
 		openNewIssue,
+		requestCloseIssueModal,
 		ui
 	} from '$lib/stores/ui.svelte';
 
@@ -32,6 +32,10 @@
 		return href === '/' ? page.url.pathname === '/' : page.url.pathname.startsWith(href);
 	}
 
+	// The sign-in screen is the one route that renders without a session, so it
+	// gets none of the chrome that assumes one.
+	const chromeless = $derived(!data.currentUser);
+
 	function onKeydown(e: KeyboardEvent) {
 		const el = document.activeElement;
 		const typing = el?.tagName === 'INPUT' || el?.tagName === 'TEXTAREA' || el?.tagName === 'SELECT';
@@ -46,7 +50,9 @@
 				closeLightbox();
 				return;
 			}
-			closeIssueModal();
+			// Escape on a dirty issue form asks before discarding — the modal's
+			// guard decides whether this actually closes anything.
+			requestCloseIssueModal();
 			closeDrawer();
 			closeExport();
 		}
@@ -63,47 +69,58 @@
 
 <svelte:document onkeydown={onKeydown} />
 
-<div class="app">
-	<TopBar bind:this={topbar} users={data.users} currentUserId={data.currentUserId} />
-	<div class="body">
-		<nav class="nav">
-			{#each NAV as item (item.href)}
-				<a class="nav-item" class:active={isActive(item.href)} href={item.href}>
-					<Icon name={item.icon} />
-					<span>{item.label}</span>
-				</a>
-			{/each}
-			<div class="nav-sep"></div>
-			<a class="nav-item" class:active={isActive('/admin')} href="/admin">
-				<Icon name="gear" />
-				<span>Config</span>
-			</a>
-		</nav>
-		<div class="workspace">
-			{@render children()}
+{#if chromeless}
+	{@render children()}
+{:else}
+	<div class="app">
+		<TopBar bind:this={topbar} user={data.currentUser!} />
+		<div class="body">
+			<nav class="nav">
+				{#each NAV as item (item.href)}
+					<a class="nav-item" class:active={isActive(item.href)} href={item.href}>
+						<Icon name={item.icon} />
+						<span>{item.label}</span>
+					</a>
+				{/each}
+				{#if data.currentUser?.admin}
+					<div class="nav-sep"></div>
+					<a class="nav-item" class:active={isActive('/admin')} href="/admin">
+						<Icon name="gear" />
+						<span>Config</span>
+					</a>
+				{/if}
+			</nav>
+			<div class="workspace">
+				{@render children()}
+			</div>
 		</div>
 	</div>
-</div>
 
-{#if ui.issueModal}
-	<IssueModal
-		mode={ui.issueModal}
-		applications={data.applications}
-		users={data.users}
-		currentUserId={data.currentUserId}
-	/>
-{/if}
+	{#if ui.issueModal}
+		<IssueModal
+			mode={ui.issueModal}
+			applications={data.applications}
+			categories={data.categories}
+			users={data.users}
+			currentUserId={data.currentUserId}
+		/>
+	{/if}
 
-{#if ui.drawerIssue}
-	<IssueDetailDrawer issue={ui.drawerIssue} users={data.users} applications={data.applications} />
-{/if}
+	{#if ui.drawerIssue}
+		<IssueDetailDrawer
+			issue={ui.drawerIssue}
+			users={data.users}
+			applications={data.applications}
+		/>
+	{/if}
 
-{#if ui.exportOpen}
-	<ExportPanel applications={data.applications} />
-{/if}
+	{#if ui.exportOpen}
+		<ExportPanel applications={data.applications} />
+	{/if}
 
-{#if ui.lightbox}
-	<ImageLightbox />
+	{#if ui.lightbox}
+		<ImageLightbox />
+	{/if}
 {/if}
 
 <ToastHost />

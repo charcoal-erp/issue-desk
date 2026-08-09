@@ -26,6 +26,19 @@ const MODE_INSTRUCTIONS: Record<RefineMode, string> = {
 Remove ambiguity and tighten loose wording. Make what happened, what was
 expected, and the impact unmistakable. Do not add new facts or requirements.`,
 
+	itemize: `
+Rephrase and itemize. Do three things, in this order:
+1. Correct spelling, grammar and punctuation.
+2. Make the prose coherent — fix broken sentences, resolve contradictions in
+   wording, and put related statements next to each other.
+3. Break the result into a bulleted list. Every bullet starts with a short
+   bolded header naming what the bullet is about, then a colon, then the
+   detail: "- **Steps:** open the invoice screen, then …".
+
+Group related points under one bullet rather than emitting a bullet per
+sentence. Keep every fact, ID, number and error string exactly as written —
+this is a rewrite of the prose, not of the content.`,
+
 	repro: `
 Reorganise into clear sections: **Summary**, **Steps to reproduce** (a numbered
 list), **Expected**, **Actual**. Use only information already present — if a

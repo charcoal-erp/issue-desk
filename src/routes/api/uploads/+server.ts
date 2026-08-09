@@ -7,7 +7,7 @@ import { saveUploads, UploadError } from '$lib/server/uploads';
  * POST /api/uploads (multipart, §12): appId + issueId ('pending' + draftId for
  * pre-create) + file blobs → validated, sanitised, saved → Attachment[].
  */
-export const POST: RequestHandler = async ({ request, cookies }) => {
+export const POST: RequestHandler = async ({ request, locals }) => {
 	await store.ensureLoaded();
 	const form = await request.formData();
 	const appId = String(form.get('appId') ?? '');
@@ -22,7 +22,7 @@ export const POST: RequestHandler = async ({ request, cookies }) => {
 		return json({ message: 'No files in the request.' }, { status: 400 });
 	}
 	const existing = issueId !== 'pending' ? (store.get(issueId)?.attachments.length ?? 0) : 0;
-	const uploadedBy = cookies.get('issuedesk_user') || store.users()[0]?.id || 'system';
+	const uploadedBy = locals.user?.id ?? 'system';
 
 	try {
 		const attachments = await saveUploads(

@@ -54,6 +54,38 @@ export function keyEncryptionKey(): string | undefined {
 	return env.KEY_ENCRYPTION_KEY || undefined;
 }
 
+/** Password digests + the JWT signing secret. 0600, never exported. */
+export function authDir(): string {
+	return path.join(dataDir(), 'auth');
+}
+
+export function credentialsFile(): string {
+	return path.join(authDir(), 'credentials.json');
+}
+
+export function jwtSecretFile(): string {
+	return path.join(authDir(), 'jwt-secret.json');
+}
+
+/** Signing secret, when supplied out-of-band. Unset = generate and persist one. */
+export function jwtSecretFromEnv(): string | undefined {
+	return env.AUTH_JWT_SECRET?.trim() || undefined;
+}
+
+/** How long an issued JWT stays valid. Default 12h, in seconds. */
+export function tokenTtlSeconds(): number {
+	const hours = Number(env.AUTH_TOKEN_TTL_HOURS);
+	return (Number.isFinite(hours) && hours > 0 ? hours : 12) * 3600;
+}
+
+/**
+ * Password for the bootstrap admin, used only when no credentials exist yet.
+ * Unset = one is generated and printed to the server log on first boot.
+ */
+export function bootstrapAdminPassword(): string | undefined {
+	return env.ISSUEDESK_ADMIN_PASSWORD?.trim() || undefined;
+}
+
 export function maxUploadBytes(): number {
 	return (Number(env.MAX_UPLOAD_MB) || 15) * 1024 * 1024;
 }

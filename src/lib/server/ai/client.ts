@@ -28,13 +28,19 @@ interface CallOptions {
 	system: string;
 	user: string;
 	maxTokens?: number;
+	/**
+	 * Adaptive thinking. Defaults to on, but it is NOT universal: it arrived
+	 * with the 4.6 generation, and Haiku 4.5 — the fast model behind tag
+	 * extraction — rejects `thinking: {type:'adaptive'}` outright with a 400.
+	 * Pass false for any call routed to a model older than that.
+	 */
+	thinking?: boolean;
 }
 
 /**
- * One non-streaming completion. Returns the plain text. Adaptive thinking is on
- * (recommended for Opus 4.8 / Haiku 4.5). Any failure — auth, rate limit,
- * refusal, network — is translated into an AiError so the caller can show it and
- * leave the user's data untouched.
+ * One non-streaming completion. Returns the plain text. Any failure — auth,
+ * rate limit, refusal, network — is translated into an AiError so the caller
+ * can show it and leave the user's data untouched.
  */
 export async function complete(opts: CallOptions): Promise<string> {
 	const anthropic = await client();
@@ -43,7 +49,10 @@ export async function complete(opts: CallOptions): Promise<string> {
 		message = await anthropic.messages.create({
 			model: opts.model,
 			max_tokens: opts.maxTokens ?? MAX_TOKENS,
-			thinking: { type: 'adaptive' },
+			// Omitted entirely rather than sent as "disabled": models that predate
+			// adaptive thinking simply run without it, and an unknown enum value
+			// would be one more thing to get wrong.
+			...(opts.thinking === false ? {} : { thinking: { type: 'adaptive' as const } }),
 			system: opts.system,
 			messages: [{ role: 'user', content: opts.user }]
 		});

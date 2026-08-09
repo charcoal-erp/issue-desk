@@ -1,5 +1,13 @@
 import { z } from 'zod';
-import { ISSUE_TYPES, PRIORITIES, PROVIDERS, REFINE_MODES, STATUSES } from './types';
+import {
+	ISSUE_TYPES,
+	PRIORITIES,
+	PROVIDERS,
+	REFINE_MODES,
+	SOURCES,
+	STATUSES,
+	USER_KINDS
+} from './types';
 
 const slug = z
 	.string()
@@ -16,7 +24,26 @@ export const userSchema = z.object({
 		.regex(/^#[0-9a-fA-F]{6}$/)
 		.optional(),
 	active: z.boolean().optional(),
-	assignable: z.boolean().optional()
+	assignable: z.boolean().optional(),
+	kind: z.enum(USER_KINDS).optional(),
+	username: z
+		.string()
+		.trim()
+		.min(2)
+		.max(64)
+		.regex(/^[a-z0-9][a-z0-9._-]*$/, 'lowercase letters, digits, dot, dash and underscore only')
+		.optional(),
+	admin: z.boolean().optional()
+});
+
+export const categorySchema = z.object({
+	id: slug,
+	name: z.string().trim().min(1),
+	description: z.string().trim().max(280).optional(),
+	color: z
+		.string()
+		.regex(/^#[0-9a-fA-F]{6}$/)
+		.optional()
 });
 
 export const formRefSchema = z.object({ id: slug, name: z.string().min(1) });
@@ -86,16 +113,20 @@ export const issueSchema = z.object({
 	appId: slug,
 	appCode: z.string().min(1),
 	appName: z.string().min(1),
-	moduleId: slug,
-	moduleCode: z.string().min(1),
-	moduleName: z.string().min(1),
+	moduleId: slug.optional(),
+	moduleCode: z.string().min(1).optional(),
+	moduleName: z.string().min(1).optional(),
 	pageName: z.string().optional(),
 	pagePath: z.string().optional(),
 	formName: z.string().optional(),
 	priority: z.enum(PRIORITIES),
 	status: z.enum(STATUSES),
+	// Issues written before the source field existed are manual by definition:
+	// nothing else could have filed them.
+	source: z.enum(SOURCES).default('manual-testing'),
 	reporterId: z.string().min(1),
 	assigneeId: z.string().optional(),
+	categoryId: z.string().optional(),
 	tags: z.array(z.string()).default([]),
 	attachments: z.array(attachmentSchema).default([]),
 	activity: z.array(activitySchema).default([]),
@@ -116,12 +147,13 @@ export const createIssueSchema = z.object({
 	title: z.string().trim().min(1, 'Title is required').max(200, 'Keep the title under 200 characters'),
 	description: z.string().default(''),
 	appId: z.string().min(1, 'Application is required'),
-	moduleId: z.string().min(1, 'Module is required'),
+	moduleId: z.string().optional(),
 	page: z.string().trim().max(200).optional(),
 	form: z.string().trim().max(200).optional(),
 	priority: z.enum(PRIORITIES),
 	status: z.enum(STATUSES),
 	assigneeId: z.string().optional(),
+	categoryId: z.string().optional(),
 	tags: z.array(z.string()).default([]),
 	attachments: z.array(attachmentSchema).default([]),
 	testCaseId: z.string().optional(),
@@ -129,6 +161,57 @@ export const createIssueSchema = z.object({
 });
 
 export const updateIssueSchema = createIssueSchema.partial();
+
+// ---------- Authentication ----------
+/**
+ * Credentials as stored in data/auth/credentials.json (0600). Only the scrypt
+ * digest is kept; `updatedAt` doubles as a revocation stamp — a JWT issued
+ * before the current password was set is refused, so a password change logs
+ * every outstanding token out.
+ */
+export const storedCredentialsSchema = z.object({
+	userId: slug,
+	hash: z.string().min(1), // "scrypt$N$r$p$<salt-b64>$<key-b64>"
+	updatedAt: z.string().min(1)
+});
+
+export const loginRequestSchema = z.object({
+	username: z.string().trim().min(1, 'Username is required'),
+	password: z.string().min(1, 'Password is required')
+});
+
+/**
+ * Deliberately generous at the top end and strict at the bottom: agent
+ * passwords are machine-generated and long, human ones just need to clear a
+ * floor worth defending.
+ */
+export const passwordSchema = z
+	.string()
+	.min(10, 'Use at least 10 characters')
+	.max(200, 'Keep it under 200 characters');
+
+// ---------- Agent API ----------
+/**
+ * The transitions an agent may drive. Verification is a human's call, so
+ * `complete` and `rejected` are missing here — but this is a statement about
+ * agent *accounts*, not about the endpoint: a human hitting the same route
+ * keeps the full range, so the restriction is applied per-caller
+ * (`mayNotSetStatus`) rather than baked into the request schema.
+ */
+export const AGENT_STATUSES = ['open', 'in-progress', 'to-be-verified'] as const;
+
+export const agentStatusRequestSchema = z.object({
+	status: z.enum(STATUSES),
+	comment: z.string().trim().max(5000).optional()
+});
+
+export const agentCommentRequestSchema = z.object({
+	message: z.string().trim().min(1, 'Comment cannot be empty').max(5000)
+});
+
+export const agentClaimRequestSchema = z.object({
+	comment: z.string().trim().max(5000).optional()
+});
 
 // ---------- Generative AI ----------
 /** On-disk shape of an encrypted provider key (never leaves the server). */

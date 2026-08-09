@@ -1,6 +1,7 @@
 import type { Issue } from '$lib/types';
 import { PRIORITY_META } from '$lib/priority';
 import { STATUS_META } from '$lib/status';
+import { SOURCE_META } from '$lib/source';
 import {
 	absolutise,
 	appName,
@@ -14,10 +15,11 @@ import {
 export function issueToMarkdown(issue: Issue, ctx: ExportContext): string {
 	let out = `## ${issue.id} · [${PRIORITY_META[issue.priority].label.toUpperCase()}] ${issue.title}\n\n`;
 	out += `| | |\n|---|---|\n`;
-	out += `| **App / Module** | ${issue.appName} / ${issue.moduleName} |\n`;
+	out += `| **App / Module** | ${issue.appName} / ${issue.moduleName ?? 'No module'} |\n`;
 	out += `| **Page / Form**  | ${issue.pagePath || issue.pageName || '—'}${issue.formName ? ' · ' + issue.formName : ''} |\n`;
 	out += `| **Type**         | ${issue.type === 'bug' ? 'Bug' : 'Feature'} |\n`;
 	out += `| **Status**       | ${STATUS_META[issue.status].label} |\n`;
+	out += `| **Source**       | ${SOURCE_META[issue.source].label} |\n`;
 	out += `| **Reporter**     | ${userName(ctx, issue.reporterId)} |\n\n`;
 	out += `**Description**\n${issue.description}\n\n`;
 	if (issue.attachments.length) {

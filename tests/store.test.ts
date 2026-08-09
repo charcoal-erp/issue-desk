@@ -35,7 +35,7 @@ afterAll(async () => {
 });
 
 describe('seed', () => {
-	it('seeds five apps and four users, no issues', () => {
+	it('seeds five apps and five accounts, no issues', () => {
 		expect(store.applications().map((a) => a.id).sort()).toEqual([
 			'charcoal',
 			'chattr',
@@ -43,8 +43,22 @@ describe('seed', () => {
 			'drishti',
 			'relay'
 		]);
-		expect(store.users()).toHaveLength(4);
+		// Four people plus the claude-agent account the API is designed for.
+		expect(store.users()).toHaveLength(5);
 		expect(store.list({}).total).toBe(0);
+	});
+
+	it('seeds one agent account, and marks the first user admin', () => {
+		const agents = store.users().filter((u) => u.kind === 'agent');
+		expect(agents.map((u) => u.id)).toEqual(['claude-agent']);
+		expect(store.users().filter((u) => u.admin).map((u) => u.id)).toEqual(['kiran']);
+	});
+
+	it('seeds the starter category vocabulary', () => {
+		const ids = store.categories().map((c) => c.id);
+		expect(ids).toContain('functionality');
+		expect(ids).toContain('security');
+		expect(new Set(ids).size).toBe(ids.length);
 	});
 
 	it('gives Charcoal 14 modules and Drishti 6', () => {
@@ -52,9 +66,9 @@ describe('seed', () => {
 		expect(store.applications().find((a) => a.id === 'drishti')!.modules).toHaveLength(6);
 	});
 
-	it('marks only Kiran and Tushar assignable', () => {
+	it('marks Kiran, Tushar and the agent assignable', () => {
 		const assignable = store.users().filter((u) => u.assignable).map((u) => u.id).sort();
-		expect(assignable).toEqual(['kiran', 'tushar']);
+		expect(assignable).toEqual(['claude-agent', 'kiran', 'tushar']);
 	});
 
 	it('starts each app sequence at 1', () => {

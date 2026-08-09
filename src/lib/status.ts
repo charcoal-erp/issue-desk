@@ -9,6 +9,9 @@ export interface StatusMeta {
 }
 
 export const STATUS_META: Record<Status, StatusMeta> = {
+	backlog: {
+		label: 'Backlog', shortLabel: 'Backlog', color: '#7C3AED', badgeClass: 'st-backlog', pickerClass: 's-backlog'
+	},
 	open: { label: 'Open', shortLabel: 'Open', color: '#E5484D', badgeClass: 'st-open', pickerClass: 's-open' },
 	'in-progress': {
 		label: 'In-progress', shortLabel: 'In prog.', color: '#F5A623', badgeClass: 'st-inprog', pickerClass: 's-inprog'
@@ -24,8 +27,22 @@ export const STATUS_META: Record<Status, StatusMeta> = {
 	}
 };
 
-export const STATUS_ORDER: Status[] = ['open', 'in-progress', 'to-be-verified', 'complete', 'rejected'];
+export const STATUS_ORDER: Status[] = [
+	'backlog',
+	'open',
+	'in-progress',
+	'to-be-verified',
+	'complete',
+	'rejected'
+];
 
 export function statusRank(s: Status): number {
 	return STATUS_ORDER.indexOf(s);
 }
+
+/**
+ * Work that is live: filed and not yet finished. Backlog is parked by
+ * definition and closed work is done, so neither counts — this is what the
+ * dashboard's "open" figures and the agent queue mean by outstanding.
+ */
+export const ACTIVE_STATUSES: Status[] = ['open', 'in-progress', 'to-be-verified'];

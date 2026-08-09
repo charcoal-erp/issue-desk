@@ -3,12 +3,13 @@ import path from 'node:path';
 import { z } from 'zod';
 import {
 	applicationSchema,
+	categorySchema,
 	issueSchema,
 	sequenceSchema,
 	settingsSchema,
 	userSchema
 } from '$lib/schemas';
-import type { Application, Issue, Settings, User } from '$lib/types';
+import type { Application, Category, Issue, Settings, User } from '$lib/types';
 import { configDir, issuesDir } from './paths';
 
 export async function readJson(filePath: string): Promise<unknown | undefined> {
@@ -40,6 +41,17 @@ export async function loadUsers(): Promise<User[]> {
 export async function loadApplications(): Promise<Application[]> {
 	const raw = await readJson(path.join(configDir(), 'applications.json'));
 	return safeParse(z.array(applicationSchema), raw ?? [], 'config/applications.json') ?? [];
+}
+
+/**
+ * Categories are optional on disk: a data dir written before they existed has
+ * no file, and an empty list simply means "no category filter offered" rather
+ * than a boot failure.
+ */
+export async function loadCategories(): Promise<Category[]> {
+	const raw = await readJson(path.join(configDir(), 'categories.json'));
+	if (raw === undefined) return [];
+	return safeParse(z.array(categorySchema), raw, 'config/categories.json') ?? [];
 }
 
 export async function loadSettings(): Promise<Settings> {

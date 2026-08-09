@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import type { User } from '$lib/types';
+	import type { SessionUser } from '$lib/types';
 	import Icon from './Icon.svelte';
-	import UserSwitcher from './UserSwitcher.svelte';
+	import AccountMenu from './AccountMenu.svelte';
 
-	let { users, currentUserId }: { users: User[]; currentUserId: string } = $props();
+	let { user }: { user: SessionUser } = $props();
 
 	// Global search mirrors the table's `q` URL param (§13).
 	let value = $state(page.url.searchParams.get('q') ?? '');
@@ -52,7 +52,7 @@
 		/>
 		<kbd>/</kbd>
 	</div>
-	<UserSwitcher {users} {currentUserId} />
+	<AccountMenu {user} />
 </header>
 
 <style>

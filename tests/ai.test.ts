@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { slugify, labelFor, reconcileTags } from '$lib/tags';
 import { parseTags } from '$lib/server/ai/tags';
 import { systemPromptFor } from '$lib/server/ai/refine';
+import { REFINE_MODES } from '$lib/types';
 import { setKey, getKeyForRequest, removeKey, mask, status, isVaultReady } from '$lib/server/security/vault';
 import { credentialFile } from '$lib/server/fs/paths';
 
@@ -61,6 +62,22 @@ describe('refine system prompts', () => {
 	it('embeds a custom instruction when given', () => {
 		const p = systemPromptFor('custom', 'rewrite for a stakeholder');
 		expect(p).toMatch(/rewrite for a stakeholder/);
+	});
+
+	it('asks the itemize mode for spelling, coherence and bold-headed bullets', () => {
+		const p = systemPromptFor('itemize');
+		expect(p).toMatch(/spelling/i);
+		expect(p).toMatch(/coherent/i);
+		expect(p).toMatch(/bulleted list/i);
+		expect(p).toMatch(/bolded header/i);
+		// Still bound by the shared contract — a rewrite, not a rewrite of facts.
+		expect(p).toMatch(/Return ONLY the rewritten description/);
+	});
+
+	it('has a prompt for every mode the UI can request', () => {
+		for (const mode of REFINE_MODES) {
+			expect(systemPromptFor(mode).length).toBeGreaterThan(0);
+		}
 	});
 });
 
