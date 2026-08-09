@@ -42,6 +42,10 @@
 	--term-str: #8de38d;
 	--term-muted: #5c6b86;
 
+	/* One spacing value for every card surface: the gap between two cards side
+	   by side is the gap between two cards stacked. */
+	--card-gap: 16px;
+
 	--radius: 12px;
 	--radius-sm: 9px;
 	--radius-xs: 7px;
@@ -1123,7 +1127,6 @@ textarea {
 }
 .dash {
 	padding: 20px 24px 40px;
-	max-width: 1200px;
 }
 .dash h1 {
 	font-family: var(--font-display);
@@ -1137,11 +1140,14 @@ textarea {
 	margin: 0 0 22px;
 	font-size: 13.5px;
 }
+/* Both dashboard grids fit as many cards per row as the screen can hold rather
+   than to a fixed column count — a wide monitor gets one row of stats instead
+   of five plus a stranded two. `min()` keeps the track from outgrowing a phone. */
 .stat-grid {
 	display: grid;
-	grid-template-columns: repeat(5, 1fr);
-	gap: 16px;
-	margin-bottom: 24px;
+	grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+	gap: var(--card-gap);
+	margin-bottom: var(--card-gap);
 }
 .stat {
 	background: var(--surface);
@@ -1183,10 +1189,27 @@ textarea {
 	width: 4px;
 }
 
+/* Wrapping flex rather than a grid: a grid's last row leaves empty tracks when
+   the panel count doesn't divide by the column count, whereas flex items grow
+   to close the row. So the panels always reach both edges, at any width. */
 .panel-grid {
-	display: grid;
-	grid-template-columns: 1.4fr 1fr;
-	gap: 16px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--card-gap);
+}
+.panel-grid > .panel {
+	flex-grow: 1;
+	flex-shrink: 1;
+	/* Five to a row at most — a sixth would be narrower than a bar chart can
+	   usefully be — and never below 320px, which is where the label + track +
+	   count stops fitting. Between those two the row count follows the width.
+	   `flex-grow` still closes a short last row, so there are no empty cells. */
+	flex-basis: max(320px, calc((100% - 4 * var(--card-gap)) / 5));
+	min-width: 0;
+}
+/* A panel that reads better across the whole width than beside a neighbour. */
+.panel-grid > .panel.wide {
+	flex-basis: 100%;
 }
 .panel {
 	background: var(--surface);
@@ -1287,7 +1310,6 @@ textarea {
 }
 .admin {
 	padding: 20px 24px 40px;
-	max-width: 1100px;
 }
 .admin h1 {
 	font-family: var(--font-display);
@@ -1342,6 +1364,32 @@ textarea {
 }
 .admin-panel.on {
 	display: block;
+}
+/* Same wrapping-flex arrangement as the dashboard's panels: sections sit side
+   by side and fall into a column when the width runs out. Cards keep their own
+   height here — a paragraph of guidance next to a long table should not be
+   stretched to match it. */
+.cfg-grid {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: var(--card-gap);
+}
+.cfg-col {
+	flex: 1 1 340px;
+	min-width: 0;
+}
+/* The narrow column: what a section is for. The wide one: the thing itself.
+   Percentage bases hold the ~1:3 split on a wide screen; the px floors make the
+   pair wrap to full-width rows before either column gets too cramped to read. */
+.cfg-col.cfg-aside {
+	flex: 1 1 max(300px, calc(24% - var(--card-gap)));
+}
+.cfg-col.cfg-main {
+	flex: 1 1 max(560px, calc(76% - var(--card-gap)));
+}
+.cfg-col.cfg-wide {
+	flex-basis: 100%;
 }
 .data-card {
 	background: var(--surface);
@@ -1410,6 +1458,9 @@ textarea {
 	display: flex;
 	align-items: center;
 	justify-content: space-between;
+	/* Holds the height of a small button, so two sections side by side line up
+	   whether or not each one has an action. */
+	min-height: 32px;
 	margin-bottom: 12px;
 }
 .admin-card-head h3 {
@@ -1451,9 +1502,11 @@ textarea {
 	/* Anchors in-dialog overlays, e.g. the issue form's discard confirmation. */
 	position: relative;
 }
-/* The issue form runs four fields across, so it needs the extra width. */
+/* The issue form runs four fields across, so it scales with the screen rather
+   than sitting at a fixed width. */
 .issue-modal {
-	max-width: 1060px;
+	width: 75vw;
+	max-width: none;
 }
 /* The form wrapping body + footer must pass the height constraint through. */
 .modal > form {
@@ -2412,12 +2465,6 @@ textarea {
 	}
 }
 @media (max-width: 1180px) {
-	.stat-grid {
-		grid-template-columns: repeat(2, 1fr);
-	}
-	.panel-grid {
-		grid-template-columns: 1fr;
-	}
 	.topsearch {
 		display: none;
 	}
@@ -2425,6 +2472,10 @@ textarea {
 @media (max-width: 900px) {
 	.filters {
 		display: none;
+	}
+	/* Three quarters of a phone screen is just wasted margin. */
+	.issue-modal {
+		width: 100%;
 	}
 	.field,
 	.field.third {

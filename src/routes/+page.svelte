@@ -95,9 +95,7 @@
 					{/if}
 				</div>
 			</div>
-		</div>
 
-		<div class="panel-grid">
 			<div class="panel">
 				<div class="panel-head"><h3>Open issues by application</h3></div>
 				<div class="panel-body">
@@ -135,9 +133,7 @@
 					{/if}
 				</div>
 			</div>
-		</div>
 
-		<div class="panel-grid">
 			<div class="panel">
 				<div class="panel-head"><h3>Created vs. resolved — last 8 weeks</h3></div>
 				<div class="panel-body">
@@ -179,26 +175,26 @@
 					{/if}
 				</div>
 			</div>
-		</div>
 
-		<div class="panel" style="margin-top:16px">
-			<div class="panel-head"><h3>Recent activity</h3></div>
-			<div class="panel-body">
-				{#if recent.length === 0}
-					<div class="empty"><Icon name="task" /><span>No issues reported yet</span></div>
-				{:else}
-					{#each recent as issue (issue.id)}
-						<div class="act-item">
-							<span class="act-dot" style="background:{STATUS_META[issue.status].color}"></span>
-							<div class="ai-body">
-								<b>{userName(issue.reporterId)}</b> reported
-								<button class="mid" onclick={() => openDrawer(issue)}>{issue.id}</button> — {issue.title}
-								<span style="color:var(--faint)">in {issue.appName}{issue.moduleName ? ` / ${issue.moduleName}` : ''}</span>
+			<div class="panel wide">
+				<div class="panel-head"><h3>Recent activity</h3></div>
+				<div class="panel-body">
+					{#if recent.length === 0}
+						<div class="empty"><Icon name="task" /><span>No issues reported yet</span></div>
+					{:else}
+						{#each recent as issue (issue.id)}
+							<div class="act-item">
+								<span class="act-dot" style="background:{STATUS_META[issue.status].color}"></span>
+								<div class="ai-body">
+									<b>{userName(issue.reporterId)}</b> reported
+									<button class="mid" onclick={() => openDrawer(issue)}>{issue.id}</button> — {issue.title}
+									<span style="color:var(--faint)">in {issue.appName}{issue.moduleName ? ` / ${issue.moduleName}` : ''}</span>
+								</div>
+								<div class="ai-time">{relDate(issue.updatedAt)}</div>
 							</div>
-							<div class="ai-time">{relDate(issue.updatedAt)}</div>
-						</div>
-					{/each}
-				{/if}
+						{/each}
+					{/if}
+				</div>
 			</div>
 		</div>
 	</div>
@@ -229,7 +225,7 @@
 	.trend {
 		display: flex;
 		align-items: flex-end;
-		gap: 8px;
+		gap: 6px;
 		height: 140px;
 		padding-top: 8px;
 	}
@@ -263,7 +259,10 @@
 	.trend-label {
 		font-size: 10.5px;
 		color: var(--faint);
-		white-space: nowrap;
+		/* Wraps to "Jun / 15" rather than pushing the last week out of the card:
+		   five panels to a row leaves each chart about 330px. */
+		text-align: center;
+		line-height: 1.25;
 	}
 	.legend {
 		display: flex;

@@ -131,39 +131,45 @@
 
 		{#if tab === 'data'}
 			<div class="admin-panel on">
-				<div class="admin-card-head">
-					<h3>Export snapshot</h3>
-					<button class="btn btn-primary btn-sm" onclick={runExport} disabled={exporting}>
-						<Icon name="download" />{exporting ? 'Exporting…' : 'Export data (.zip)'}
-					</button>
-				</div>
-				<div class="data-card data-pad">
-					<p class="data-desc">
-						Downloads a single zip with <b>every issue</b> across all applications — full details,
-						activity history, sequence counters, reference config (users, applications, settings)
-						and all attached <b>images &amp; documents</b>. Checkpoint content (test cases, suites,
-						runs, runners) is not included. Use it for backups or to move this instance's data to
-						another machine. If any single file cannot be read, it is excluded and listed under
-						<b>skipped</b> in the archive's manifest.json — the rest still exports, and you'll be
-						warned here.
-					</p>
-				</div>
+				<div class="cfg-grid">
+					<section class="cfg-col">
+						<div class="admin-card-head">
+							<h3>Export snapshot</h3>
+							<button class="btn btn-primary btn-sm" onclick={runExport} disabled={exporting}>
+								<Icon name="download" />{exporting ? 'Exporting…' : 'Export data (.zip)'}
+							</button>
+						</div>
+						<div class="data-card data-pad">
+							<p class="data-desc">
+								Downloads a single zip with <b>every issue</b> across all applications — full details,
+								activity history, sequence counters, reference config (users, applications, settings)
+								and all attached <b>images &amp; documents</b>. Checkpoint content (test cases, suites,
+								runs, runners) is not included. Use it for backups or to move this instance's data to
+								another machine. If any single file cannot be read, it is excluded and listed under
+								<b>skipped</b> in the archive's manifest.json — the rest still exports, and you'll be
+								warned here.
+							</p>
+						</div>
+					</section>
 
-				<div class="admin-card-head" style="margin-top:18px">
-					<h3>Import snapshot</h3>
-				</div>
-				<div class="data-card data-pad">
-					<p class="data-desc">
-						Restores a zip produced by the export above. <b>Replaces</b> all current IssueDesk data
-						(issues, config, attachments) after validating the archive; the previous state is kept
-						in <b>data/.backups/pre-import-…</b> for manual recovery. Checkpoint data is untouched.
-					</p>
-					<div class="import-row">
-						<input class="inp" type="file" accept=".zip,application/zip" bind:this={importInput} />
-						<button class="btn btn-primary btn-sm" onclick={runImport} disabled={importing}>
-							<Icon name="upload" />{importing ? 'Importing…' : 'Import data'}
-						</button>
-					</div>
+					<section class="cfg-col">
+						<div class="admin-card-head">
+							<h3>Import snapshot</h3>
+						</div>
+						<div class="data-card data-pad">
+							<p class="data-desc">
+								Restores a zip produced by the export above. <b>Replaces</b> all current IssueDesk data
+								(issues, config, attachments) after validating the archive; the previous state is kept
+								in <b>data/.backups/pre-import-…</b> for manual recovery. Checkpoint data is untouched.
+							</p>
+							<div class="import-row">
+								<input class="inp" type="file" accept=".zip,application/zip" bind:this={importInput} />
+								<button class="btn btn-primary btn-sm" onclick={runImport} disabled={importing}>
+									<Icon name="upload" />{importing ? 'Importing…' : 'Import data'}
+								</button>
+							</div>
+						</div>
+					</section>
 				</div>
 			</div>
 		{:else if tab === 'apps'}
@@ -202,13 +208,19 @@
 				<div class="admin-card-head">
 					<h3>Generative AI — Anthropic key</h3>
 				</div>
-				<div class="data-card data-pad">
-					<p class="data-desc">
-						Powers <b>description refinement</b> and <b>tag suggestions</b> in the issue editor.
-						The key is stored <b>encrypted</b> (AES-256-GCM) in <b>data/vault/anthropic.json</b>,
-						never in git and never included in a data export. Only a masked hint is shown here.
-					</p>
+				<div class="cfg-grid">
+					<section class="cfg-col cfg-aside">
+						<div class="data-card data-pad">
+							<p class="data-desc">
+								Powers <b>description refinement</b> and <b>tag suggestions</b> in the issue editor.
+								The key is stored <b>encrypted</b> (AES-256-GCM) in <b>data/vault/anthropic.json</b>,
+								never in git and never included in a data export. Only a masked hint is shown here.
+							</p>
+						</div>
+					</section>
 
+					<section class="cfg-col cfg-main">
+					<div class="data-card data-pad">
 					{#if !data.vaultReady}
 						<div class="admin-note" style="margin-bottom:14px">
 							<Icon name="warning" />
@@ -309,6 +321,8 @@
 							{/if}
 						</div>
 					{/if}
+					</div>
+					</section>
 				</div>
 			</div>
 		{:else if tab === 'categories'}
@@ -319,53 +333,59 @@
 						<Icon name="plus" />Add category
 					</button>
 				</div>
-				<div class="data-card data-pad">
-					<p class="data-desc">
-						What an issue is <b>about</b> — as opposed to the application and module, which say
-						where it lives. Agents pull work a category at a time
-						(<code>GET /api/agent/issues?category=…</code>), so these slugs are part of your API
-						surface: renaming an id changes what an agent must ask for. Tags stay free-form and
-						filter separately.
-					</p>
-				</div>
-				<div class="data-card">
-					<table>
-						<thead>
-							<tr><th>Category</th><th>ID</th><th>Description</th><th></th></tr>
-						</thead>
-						<tbody>
-							{#each data.categories as category (category.id)}
-								<tr class="rowbtn" onclick={() => (editor = { kind: 'category', category })}>
-									<td><AppChip name={category.name} color={category.color} bold /></td>
-									<td style="font-family:var(--font-mono);font-size:12px;color:var(--muted)">{category.id}</td>
-									<td style="color:var(--muted)">{category.description ?? '—'}</td>
-									<td style="text-align:right">
-										<form
-											method="POST"
-											action="?/removeCategory"
-											use:enhance={() => async ({ result }) => {
-												if (result.type === 'success') {
-													await invalidateAll();
-													toast('Category removed', 'Issues using it keep the id and show as uncategorised.');
-												}
-											}}
-										>
-											<input type="hidden" name="id" value={category.id} />
-											<button
-												class="btn btn-ghost btn-sm"
-												type="submit"
-												onclick={(e) => e.stopPropagation()}
-												aria-label="Remove {category.name}"><Icon name="trash" /></button
+				<div class="cfg-grid">
+				<section class="cfg-col cfg-aside">
+					<div class="data-card data-pad">
+						<p class="data-desc">
+							What an issue is <b>about</b> — as opposed to the application and module, which say
+							where it lives. Agents pull work a category at a time
+							(<code>GET /api/agent/issues?category=…</code>), so these slugs are part of your API
+							surface: renaming an id changes what an agent must ask for. Tags stay free-form and
+							filter separately.
+						</p>
+					</div>
+				</section>
+				<section class="cfg-col cfg-main">
+					<div class="data-card">
+						<table>
+							<thead>
+								<tr><th>Category</th><th>ID</th><th>Description</th><th></th></tr>
+							</thead>
+							<tbody>
+								{#each data.categories as category (category.id)}
+									<tr class="rowbtn" onclick={() => (editor = { kind: 'category', category })}>
+										<td><AppChip name={category.name} color={category.color} bold /></td>
+										<td style="font-family:var(--font-mono);font-size:12px;color:var(--muted)">{category.id}</td>
+										<td style="color:var(--muted)">{category.description ?? '—'}</td>
+										<td style="text-align:right">
+											<form
+												method="POST"
+												action="?/removeCategory"
+												use:enhance={() => async ({ result }) => {
+													if (result.type === 'success') {
+														await invalidateAll();
+														toast('Category removed', 'Issues using it keep the id and show as uncategorised.');
+													}
+												}}
 											>
-										</form>
-									</td>
-								</tr>
-							{/each}
-							{#if !data.categories.length}
-								<tr><td colspan="4" style="color:var(--faint)">No categories yet.</td></tr>
-							{/if}
-						</tbody>
-					</table>
+												<input type="hidden" name="id" value={category.id} />
+												<button
+													class="btn btn-ghost btn-sm"
+													type="submit"
+													onclick={(e) => e.stopPropagation()}
+													aria-label="Remove {category.name}"><Icon name="trash" /></button
+												>
+											</form>
+										</td>
+									</tr>
+								{/each}
+								{#if !data.categories.length}
+									<tr><td colspan="4" style="color:var(--faint)">No categories yet.</td></tr>
+								{/if}
+							</tbody>
+						</table>
+					</div>
+				</section>
 				</div>
 			</div>
 		{:else}
@@ -376,61 +396,67 @@
 						<Icon name="plus" />Add account
 					</button>
 				</div>
-				<div class="data-card data-pad">
-					<p class="data-desc">
-						Everyone signs in with a username and password. <b>Agent</b> accounts are the same
-						thing for a Claude Code session: it posts those credentials to
-						<code>/api/auth/login</code>, gets a JWT and works through issues under its own name.
-						An account with no password cannot sign in at all — set one below.
-					</p>
-				</div>
-				<div class="data-card">
-					<table>
-						<thead>
-							<tr><th>Name</th><th>Username</th><th>Kind</th><th>Sign-in</th><th>Assignable</th><th>Reported</th><th>Assigned</th><th></th></tr>
-						</thead>
-						<tbody>
-							{#each data.users as user (user.id)}
-								<tr class="rowbtn" onclick={() => (editor = { kind: 'user', user })}>
-									<td>
-										<div class="assignee-cell">
-											<Avatar {user} /><b>{user.name}</b>
-											{#if user.admin}<span class="role-tag" style="color:var(--accent-ink)">admin</span>{/if}
-											{#if user.active === false}<span class="role-tag" style="color:var(--open)">inactive</span>{/if}
-										</div>
-									</td>
-									<td style="font-family:var(--font-mono);font-size:12px;color:var(--muted)">{user.username ?? user.id}</td>
-									<td>
-										<span class="role-tag" style={user.kind === 'agent' ? 'color:#a2650e' : ''}>
-											{user.kind === 'agent' ? 'Agent' : 'Human'}
-										</span>
-									</td>
-									<td>
-										{#if data.credentialed[user.id]}
-											<span class="pw-ok">Password set</span>
-										{:else}
-											<span class="pw-none">No password</span>
-										{/if}
-									</td>
-									<td>
-										{#if user.assignable}<span class="role-tag" style="color:var(--accent-ink)">Yes</span
-											>{:else}<span style="color:var(--faint)">—</span>{/if}
-									</td>
-									<td>{data.perUser[user.id]?.reported ?? 0}</td>
-									<td>{data.perUser[user.id]?.assigned ?? 0}</td>
-									<td style="text-align:right">
-										<button
-											class="btn btn-ghost btn-sm"
-											onclick={(e) => {
-												e.stopPropagation();
-												openPassword(user);
-											}}><Icon name="key" />Password</button
-										>
-									</td>
-								</tr>
-							{/each}
-						</tbody>
-					</table>
+				<div class="cfg-grid">
+				<section class="cfg-col cfg-aside">
+					<div class="data-card data-pad">
+						<p class="data-desc">
+							Everyone signs in with a username and password. <b>Agent</b> accounts are the same
+							thing for a Claude Code session: it posts those credentials to
+							<code>/api/auth/login</code>, gets a JWT and works through issues under its own name.
+							An account with no password cannot sign in at all — set one from the table.
+						</p>
+					</div>
+				</section>
+				<section class="cfg-col cfg-main">
+					<div class="data-card">
+						<table>
+							<thead>
+								<tr><th>Name</th><th>Username</th><th>Kind</th><th>Sign-in</th><th>Assignable</th><th>Reported</th><th>Assigned</th><th></th></tr>
+							</thead>
+							<tbody>
+								{#each data.users as user (user.id)}
+									<tr class="rowbtn" onclick={() => (editor = { kind: 'user', user })}>
+										<td>
+											<div class="assignee-cell">
+												<Avatar {user} /><b>{user.name}</b>
+												{#if user.admin}<span class="role-tag" style="color:var(--accent-ink)">admin</span>{/if}
+												{#if user.active === false}<span class="role-tag" style="color:var(--open)">inactive</span>{/if}
+											</div>
+										</td>
+										<td style="font-family:var(--font-mono);font-size:12px;color:var(--muted)">{user.username ?? user.id}</td>
+										<td>
+											<span class="role-tag" style={user.kind === 'agent' ? 'color:#a2650e' : ''}>
+												{user.kind === 'agent' ? 'Agent' : 'Human'}
+											</span>
+										</td>
+										<td>
+											{#if data.credentialed[user.id]}
+												<span class="pw-ok">Password set</span>
+											{:else}
+												<span class="pw-none">No password</span>
+											{/if}
+										</td>
+										<td>
+											{#if user.assignable}<span class="role-tag" style="color:var(--accent-ink)">Yes</span
+												>{:else}<span style="color:var(--faint)">—</span>{/if}
+										</td>
+										<td>{data.perUser[user.id]?.reported ?? 0}</td>
+										<td>{data.perUser[user.id]?.assigned ?? 0}</td>
+										<td style="text-align:right">
+											<button
+												class="btn btn-ghost btn-sm"
+												onclick={(e) => {
+													e.stopPropagation();
+													openPassword(user);
+												}}><Icon name="key" />Password</button
+											>
+										</td>
+									</tr>
+								{/each}
+							</tbody>
+						</table>
+					</div>
+				</section>
 				</div>
 			</div>
 		{/if}

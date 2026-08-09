@@ -12,9 +12,11 @@ Built with **TypeScript · Svelte 5 (runes) · SvelteKit (adapter-node)**. No da
 data and issues live in human-readable JSON files under `data/`, uploads live on the local
 filesystem, and everything is served from an in-memory write-through store. Access is
 authenticated — username and password for the browser, JWT for the API, one login path for both.
-See [docs/IssueDesk-Design-Document.md](docs/IssueDesk-Design-Document.md) for the full design,
-[docs/AGENT-API.md](docs/AGENT-API.md) for the agent interface, and [DEPLOYMENT.md](DEPLOYMENT.md)
-for exposing a custom domain, running in production, and starting the app on boot via systemd.
+See [API.md](API.md) for the complete HTTP reference — reading, filing and changing issues from a
+script or an agent — [docs/IssueDesk-Design-Document.md](docs/IssueDesk-Design-Document.md) for the
+full design, [docs/AGENT-API.md](docs/AGENT-API.md) for the agent loop told as a narrative, and
+[DEPLOYMENT.md](DEPLOYMENT.md) for exposing a custom domain, running in production, and starting
+the app on boot via systemd.
 
 ## Run
 
@@ -98,7 +100,8 @@ curl -s -X POST localhost:5173/api/agent/issues/CHR-1/status -H "authorization: 
 ```
 
 Agents cannot mark work `complete` or `rejected` — verification stays with a human tester.
-Full reference: **[docs/AGENT-API.md](docs/AGENT-API.md)**.
+Full HTTP reference: **[API.md](API.md)**. The agent loop in narrative form:
+**[docs/AGENT-API.md](docs/AGENT-API.md)**.
 
 ## Screens
 
