@@ -260,6 +260,20 @@
 		border-color: var(--accent);
 		box-shadow: 0 0 0 3px var(--accent-soft);
 	}
+	/* These fields are styled here rather than with `.inp`, so the app-wide
+	   autofill rule loses on specificity to the focus rule above — without this
+	   pair, focusing an autofilled field brings Chrome's yellow straight back. */
+	.with-icon input:-webkit-autofill {
+		-webkit-text-fill-color: var(--ink);
+		caret-color: var(--ink);
+		box-shadow: 0 0 0 100px var(--surface-2) inset;
+	}
+	.with-icon input:-webkit-autofill:focus {
+		border-color: var(--accent);
+		box-shadow:
+			0 0 0 100px var(--surface-2) inset,
+			0 0 0 3px var(--accent-soft);
+	}
 	.with-icon:focus-within :global(svg) {
 		color: var(--accent);
 	}
