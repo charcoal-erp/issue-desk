@@ -34,6 +34,59 @@
 		DOMPurify.sanitize(marked.parse(issue.description, { async: false }))
 	);
 
+	// Comments live in the same activity log as everything else; they just get
+	// their own section, with the body rendered as Markdown the way the
+	// description is. The timeline below then shows only what happened *to* the
+	// issue, so nothing appears twice.
+	const comments = $derived(
+		issue.activity
+			.filter((a) => a.kind === 'comment' && a.message)
+			.map((a) => ({
+				id: a.id,
+				by: a.by,
+				at: a.at,
+				html: DOMPurify.sanitize(marked.parse(a.message!, { async: false }))
+			}))
+	);
+	const history = $derived(issue.activity.filter((a) => a.kind !== 'comment'));
+
+	let draft = $state('');
+	let posting = $state(false);
+
+	async function postComment() {
+		const message = draft.trim();
+		if (!message || posting) return;
+		posting = true;
+		try {
+			const result = await postAction('comment', { id: issue.id, message });
+			if (result.type === 'success') {
+				const updated = result.data?.issue as Issue | undefined;
+				if (updated) ui.drawerIssue = updated;
+				draft = '';
+				await invalidateAll();
+				toast('Comment added', `Posted on ${issue.id}.`);
+			} else {
+				toast('Could not add comment', 'Nothing was saved — try again.');
+			}
+		} finally {
+			posting = false;
+		}
+	}
+
+	function composerKeydown(e: KeyboardEvent) {
+		if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
+			e.preventDefault();
+			postComment();
+			return;
+		}
+		// Escape leaves the composer rather than closing the drawer out from
+		// under a half-written comment; a second press closes as usual.
+		if (e.key === 'Escape' && draft.trim()) {
+			e.stopPropagation();
+			(e.currentTarget as HTMLTextAreaElement).blur();
+		}
+	}
+
 	function userName(id: string): string {
 		return users.find((u) => u.id === id)?.name ?? id;
 	}
@@ -214,18 +267,51 @@
 					{/each}
 				</div>
 			{/if}
+			<div class="dr-sec-t">Comments{comments.length ? ` · ${comments.length}` : ''}</div>
+			<div class="cm-list">
+				{#each comments as c (c.id)}
+					<article class="cm">
+						<div class="cm-head">
+							<Avatar user={users.find((u) => u.id === c.by)} size={22} />
+							<b>{userName(c.by)}</b>
+							<span class="cm-when" title={fmtDateTime(c.at)}>{fmtWhen(c.at)}</span>
+						</div>
+						<!-- eslint-disable-next-line svelte/no-at-html-tags — sanitised via DOMPurify -->
+						<div class="cm-body">{@html c.html}</div>
+					</article>
+				{:else}
+					<p class="cm-none">No comments yet — add the first one.</p>
+				{/each}
+			</div>
+			<form
+				class="cm-new"
+				onsubmit={(e) => {
+					e.preventDefault();
+					postComment();
+				}}
+			>
+				<textarea
+					class="ta"
+					bind:value={draft}
+					onkeydown={composerKeydown}
+					placeholder="Add a comment…"
+					aria-label="Add a comment"
+				></textarea>
+				<div class="cm-actions">
+					<span class="cm-hint">Markdown supported · Ctrl + Enter to post</span>
+					<button class="btn btn-primary btn-sm" type="submit" disabled={posting || !draft.trim()}>
+						{posting ? 'Posting…' : 'Comment'}
+					</button>
+				</div>
+			</form>
+
 			<div class="dr-sec-t">Activity</div>
 			<div class="timeline">
-				{#each issue.activity as entry (entry.id)}
+				{#each history as entry (entry.id)}
 					{#if entry.kind === 'created'}
 						<div class="tl-item">
 							<div class="tl-txt"><b>{userName(entry.by)}</b> created this issue</div>
 							<div class="tl-time">{fmtDate(entry.at)} · via IssueDesk</div>
-						</div>
-					{:else if entry.kind === 'comment'}
-						<div class="tl-item muted">
-							<div class="tl-txt"><b>{userName(entry.by)}</b>: {entry.message}</div>
-							<div class="tl-time">{fmtDate(entry.at)}</div>
 						</div>
 					{:else}
 						<div class="tl-item muted">
@@ -245,6 +331,52 @@
 </div>
 
 <style>
+	.cm-list {
+		margin-bottom: 14px;
+	}
+	.cm {
+		border: 1px solid var(--line);
+		border-radius: 11px;
+		background: var(--surface-2);
+		padding: 11px 13px;
+		margin-bottom: 10px;
+	}
+	.cm-head {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		font-size: 12.5px;
+		color: var(--ink);
+		margin-bottom: 6px;
+	}
+	.cm-when {
+		margin-left: auto;
+		font-size: 11px;
+		color: var(--faint);
+		font-weight: 400;
+	}
+	.cm-none {
+		margin: 0 0 4px;
+		font-size: 12.5px;
+		color: var(--faint);
+	}
+	.cm-new {
+		margin-bottom: 24px;
+	}
+	.cm-new .ta {
+		min-height: 74px;
+	}
+	.cm-actions {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin-top: 8px;
+	}
+	.cm-hint {
+		flex: 1;
+		font-size: 11px;
+		color: var(--faint);
+	}
 	.test-origin {
 		display: flex;
 		align-items: center;

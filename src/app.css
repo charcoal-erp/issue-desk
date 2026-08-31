@@ -1957,13 +1957,22 @@ textarea {
 	font-weight: 600;
 	margin: 0 0 10px;
 }
-.dr-desc {
+/* Rendered Markdown, wherever it appears in the drawer: the description and
+   every comment body are the same kind of content and read the same way. */
+.dr-desc,
+.cm-body {
 	font-size: 13.5px;
 	line-height: 1.6;
 	color: var(--ink-2);
+}
+.dr-desc {
 	margin-bottom: 24px;
 }
-.dr-desc code {
+.cm-body {
+	font-size: 13px;
+}
+.dr-desc code,
+.cm-body code {
 	font-family: var(--font-mono);
 	font-size: 12px;
 	background: var(--surface-2);
@@ -1972,8 +1981,39 @@ textarea {
 	border-radius: 5px;
 	color: var(--accent-ink);
 }
-.dr-desc p {
+.dr-desc p,
+.cm-body p {
 	margin: 0 0 8px;
+}
+.dr-desc p:last-child,
+.cm-body p:last-child {
+	margin-bottom: 0;
+}
+.dr-desc ul,
+.dr-desc ol,
+.cm-body ul,
+.cm-body ol {
+	margin: 0 0 8px;
+	padding-left: 20px;
+}
+.dr-desc pre,
+.cm-body pre {
+	background: var(--surface-2);
+	border: 1px solid var(--line);
+	border-radius: 8px;
+	padding: 9px 11px;
+	overflow-x: auto;
+	margin: 0 0 8px;
+}
+.dr-desc pre code,
+.cm-body pre code {
+	background: none;
+	border: none;
+	padding: 0;
+	color: inherit;
+}
+.cm-body > :last-child {
+	margin-bottom: 0;
 }
 .gallery {
 	display: grid;
