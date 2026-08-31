@@ -15,6 +15,14 @@
 	const maxPriority = $derived(Math.max(...PRIORITIES.map((p) => data.byPriority[p]), 1));
 	const maxStatus = $derived(Math.max(...STATUS_ORDER.map((s) => data.byStatus[s]), 1));
 	const maxTag = $derived(Math.max(...data.topTags.map((t) => t.count), 1));
+	/**
+	 * A tag used ten times should read heavier than one used twice, so the chip's
+	 * tint tracks its count. Square-rooted rather than linear: one runaway tag is
+	 * common, and on a linear scale it would flatten every other chip to the same
+	 * faintest shade. Mixed into the page rather than set as a fixed colour, so it
+	 * stays subtle on a light ground and on a dark one.
+	 */
+	const tagTint = (count: number) => 6 + Math.round(Math.sqrt(count / maxTag) * 14);
 	const maxTrend = $derived(
 		Math.max(...data.trend.map((t) => Math.max(t.created, t.resolved)), 1)
 	);
@@ -199,7 +207,11 @@
 					{:else}
 						<div class="tagcloud">
 							{#each data.topTags as t (t.tag)}
-								<a class="tagchip" href="/issues?tag={encodeURIComponent(t.tag)}">
+								<a
+									class="tagchip"
+									href="/issues?tag={encodeURIComponent(t.tag)}"
+									style="--tint:{tagTint(t.count)}%"
+								>
 									{t.tag}<span class="tagn" style="width:{Math.max((t.count / maxTag) * 44, 8)}px"></span><b>{t.count}</b>
 								</a>
 							{/each}
@@ -338,16 +350,18 @@
 		display: inline-flex;
 		align-items: center;
 		gap: 6px;
-		background: var(--accent-soft-2);
-		border: 1px solid var(--border, #e6e6ef);
+		background: color-mix(in srgb, var(--accent) var(--tint, 8%), transparent);
+		border: 1px solid color-mix(in srgb, var(--accent) 15%, transparent);
 		border-radius: 999px;
 		padding: 4px 10px;
 		font-size: 12px;
 		color: inherit;
 		text-decoration: none;
+		transition: 0.14s;
 	}
 	.tagchip:hover {
-		background: var(--accent-soft);
+		background: color-mix(in srgb, var(--accent) calc(var(--tint, 8%) + 12%), transparent);
+		border-color: color-mix(in srgb, var(--accent) 34%, transparent);
 	}
 	.tagchip .tagn {
 		height: 4px;

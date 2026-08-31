@@ -67,6 +67,11 @@
 	--thumb-grad: linear-gradient(135deg, #eef1f6, #e3e9f2);
 	--scroll-thumb: #d5dbe4;
 	--scroll-thumb-hover: #c2cad6;
+	/* The toast is a dark chip inverted out of the page in light mode. In dark it
+	   cannot invert — that would be a near-white slab — so it becomes a raised
+	   surface instead, lighter than the page rather than darker. */
+	--toast-bg: #0e1726;
+	--toast-ink: #ffffff;
 
 
 	--radius: 12px;
@@ -143,6 +148,8 @@
 		--thumb-grad: linear-gradient(135deg, #1c2536, #232e42);
 		--scroll-thumb: #35425c;
 		--scroll-thumb-hover: #47567a;
+		--toast-bg: #27324a;
+		--toast-ink: #eaf0f9;
 
 		/* Dark surfaces need depth from a darker shadow, not a softer one. */
 		--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -206,6 +213,8 @@
 		--thumb-grad: linear-gradient(135deg, #1c2536, #232e42);
 		--scroll-thumb: #35425c;
 		--scroll-thumb-hover: #47567a;
+		--toast-bg: #27324a;
+		--toast-ink: #eaf0f9;
 
 		/* Dark surfaces need depth from a darker shadow, not a softer one. */
 		--shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -2560,8 +2569,8 @@ textarea {
 	display: flex;
 	align-items: center;
 	gap: 10px;
-	background: var(--ink);
-	color: #fff;
+	background: var(--toast-bg);
+	color: var(--toast-ink);
 	border-radius: 10px;
 	padding: 11px 16px;
 	box-shadow: var(--shadow-lg);
