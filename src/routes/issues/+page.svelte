@@ -9,6 +9,7 @@
 	import FilterRail from '$lib/components/FilterRail.svelte';
 	import FilterChips from '$lib/components/FilterChips.svelte';
 	import IssueTable from '$lib/components/IssueTable.svelte';
+	import ColumnPicker from '$lib/components/ColumnPicker.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 
 	let { data } = $props();
@@ -76,6 +77,7 @@
 				<Icon name="search" />
 				<input placeholder="Quick filter…" bind:value={quick} oninput={onQuickInput} />
 			</div>
+			<ColumnPicker />
 			<button class="btn btn-ghost" onclick={() => openExport(data.total)}>
 				<Icon name="export" />
 				Export

@@ -1277,23 +1277,41 @@ textarea {
 .act-item:last-child {
 	border-bottom: none;
 }
+/* Two fixed lines per entry — id + title, then who / where / when — each
+   truncating rather than wrapping, so the card keeps the same height as the
+   ones beside it however narrow the column gets. */
 .act-item .ai-body {
 	flex: 1;
-	font-size: 12.5px;
-	line-height: 1.4;
+	min-width: 0;
 }
-.act-item .ai-body b {
+.act-item .ai-line {
+	display: flex;
+	align-items: baseline;
+	gap: 7px;
+	font-size: 12.5px;
+	line-height: 1.35;
 	color: var(--ink);
 }
-.act-item .ai-body .mid {
+.act-item .ai-title {
+	min-width: 0;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.act-item .ai-meta {
+	margin-top: 2px;
+	font-size: 11px;
+	color: var(--faint);
+	line-height: 1.35;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+.act-item .mid {
+	flex: none;
 	font-family: var(--font-mono);
 	font-size: 11px;
 	color: var(--accent-ink);
-}
-.act-item .ai-time {
-	font-size: 11px;
-	color: var(--faint);
-	white-space: nowrap;
 }
 .act-dot {
 	width: 8px;

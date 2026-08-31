@@ -20,9 +20,7 @@ export interface DashboardData {
 	openTotal: number;
 	resolutionRate: number | null; // complete / total, null when no issues
 	avgOpenAgeDays: number | null; // null when nothing is open
-	openByApp: Array<{ id: string; name: string; color?: string; open: number }>;
 	topTags: Array<{ tag: string; count: number }>;
-	assigneeLoad: Array<{ id: string; name: string; open: number }>;
 	trend: TrendBucket[];
 }
 
@@ -40,14 +38,11 @@ function weekStart(d: Date): Date {
 export const load: PageServerLoad = async () => {
 	await store.ensureLoaded();
 	const issues = store.list({ sort: 'updated', dir: 'desc' }).rows;
-	const users = store.users();
-	const apps = store.applications();
 	const now = Date.now();
 
 	const byStatus = Object.fromEntries(STATUSES.map((s) => [s, 0])) as Record<Status, number>;
 	const byPriority = Object.fromEntries(PRIORITIES.map((p) => [p, 0])) as Record<Priority, number>;
 	const tagCounts = new Map<string, number>();
-	const assigneeOpen = new Map<string, number>();
 	let bugs = 0;
 	let features = 0;
 	let criticalOpen = 0;
@@ -63,7 +58,6 @@ export const load: PageServerLoad = async () => {
 			openCount += 1;
 			openAgeSum += now - new Date(i.createdAt).getTime();
 			if (i.priority === 'critical') criticalOpen += 1;
-			if (i.assigneeId) assigneeOpen.set(i.assigneeId, (assigneeOpen.get(i.assigneeId) ?? 0) + 1);
 		}
 		for (const t of i.tags) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
 	}
@@ -72,24 +66,9 @@ export const load: PageServerLoad = async () => {
 	const resolutionRate = total ? byStatus.complete / total : null;
 	const avgOpenAgeDays = openCount ? openAgeSum / openCount / DAY : null;
 
-	const openByApp = apps
-		.filter((a) => issues.some((i) => i.appId === a.id))
-		.map((a) => ({
-			id: a.id,
-			name: a.name,
-			color: a.color,
-			open: issues.filter((i) => i.appId === a.id && i.status === 'open').length
-		}))
-		.sort((a, b) => b.open - a.open);
-
 	const topTags = [...tagCounts.entries()]
 		.map(([tag, count]) => ({ tag, count }))
 		.sort((a, b) => b.count - a.count)
-		.slice(0, 8);
-
-	const assigneeLoad = [...assigneeOpen.entries()]
-		.map(([id, open]) => ({ id, name: users.find((u) => u.id === id)?.name ?? id, open }))
-		.sort((a, b) => b.open - a.open)
 		.slice(0, 8);
 
 	// Last 8 weeks: created (by createdAt) vs resolved (complete issues by updatedAt).
@@ -127,9 +106,7 @@ export const load: PageServerLoad = async () => {
 		openTotal: byStatus.open,
 		resolutionRate,
 		avgOpenAgeDays,
-		openByApp,
 		topTags,
-		assigneeLoad,
 		trend
 	};
 	return data;

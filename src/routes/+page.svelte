@@ -10,15 +10,60 @@
 	let { data } = $props();
 
 	const total = $derived(data.total);
-	const recent = $derived(data.issues.slice(0, 6));
+	const recent = $derived(data.issues.slice(0, 5));
 
-	const maxApp = $derived(Math.max(...data.openByApp.map((a) => a.open), 1));
 	const maxPriority = $derived(Math.max(...PRIORITIES.map((p) => data.byPriority[p]), 1));
 	const maxStatus = $derived(Math.max(...STATUS_ORDER.map((s) => data.byStatus[s]), 1));
 	const maxTag = $derived(Math.max(...data.topTags.map((t) => t.count), 1));
-	const maxAssignee = $derived(Math.max(...data.assigneeLoad.map((a) => a.open), 1));
 	const maxTrend = $derived(
 		Math.max(...data.trend.map((t) => Math.max(t.created, t.resolved)), 1)
+	);
+
+	// The trend line is laid out in real pixels off the measured panel width
+	// rather than a scaled viewBox, so strokes and dots stay the same size
+	// whatever width the card ends up at. Width is 0 until the binding lands,
+	// which is also what the server renders — so hydration has nothing to fix.
+	const PLOT_H = 112;
+	const PLOT_TOP = 12;
+	const PLOT_BOTTOM = 8;
+	const PLOT_LEFT = 22; // gutter for the 0 and max labels
+
+	let plotW = $state(0);
+
+	const trendLine = $derived.by(() => {
+		const n = data.trend.length;
+		if (!n || plotW <= PLOT_LEFT) return null;
+		const step = (plotW - PLOT_LEFT) / n;
+		const band = PLOT_H - PLOT_TOP - PLOT_BOTTOM;
+		const at = (v: number) => PLOT_TOP + (1 - v / maxTrend) * band;
+		// Points sit at column centres, which is where the labels below centre too.
+		const series = (pick: (t: (typeof data.trend)[number]) => number) =>
+			data.trend.map((t, i) => ({
+				x: PLOT_LEFT + step * (i + 0.5),
+				y: at(pick(t)),
+				v: pick(t),
+				label: t.label
+			}));
+		return {
+			created: series((t) => t.created),
+			resolved: series((t) => t.resolved),
+			grid: [1, 0.5, 0].map((f) => at(maxTrend * f)),
+			topY: at(maxTrend),
+			zeroY: at(0)
+		};
+	});
+
+	const polyline = (pts: { x: number; y: number }[]) => pts.map((p) => `${p.x},${p.y}`).join(' ');
+
+	/**
+	 * Label every week when the column is wide enough for a date, otherwise every
+	 * second one — counted back from the newest week, so the label people look at
+	 * first is always the one that survives. Thinning beats letting "Aug 10" wrap
+	 * onto two lines while "Jul 6" stays on one, which is what makes an axis look
+	 * ragged; every point still carries its own figures on hover.
+	 */
+	const labelStride = $derived(
+		plotW > 0 && (plotW - PLOT_LEFT) / Math.max(data.trend.length, 1) < 42 ? 2 : 1
 	);
 
 	function userName(id: string): string {
@@ -97,59 +142,46 @@
 			</div>
 
 			<div class="panel">
-				<div class="panel-head"><h3>Open issues by application</h3></div>
-				<div class="panel-body">
-					{#if data.openByApp.length === 0}
-						<div class="empty"><Icon name="board" /><span>No applications with issues yet</span></div>
-					{:else}
-						{#each data.openByApp as app (app.id)}
-							<div class="bar-row">
-								<div class="bl"><span class="app-dot" style="background:{app.color}"></span>{app.name}</div>
-								<div class="track">
-									<div class="fill" style="width:{Math.max((app.open / maxApp) * 100, app.open ? 4 : 0)}%;background:{app.color}"></div>
-								</div>
-								<div class="bn">{app.open}</div>
-							</div>
-						{/each}
-					{/if}
-				</div>
-			</div>
-
-			<div class="panel">
-				<div class="panel-head"><h3>Open workload by assignee</h3></div>
-				<div class="panel-body">
-					{#if data.assigneeLoad.length === 0}
-						<div class="empty"><Icon name="user" /><span>No assigned open issues</span></div>
-					{:else}
-						{#each data.assigneeLoad as a (a.id)}
-							<div class="bar-row">
-								<div class="bl">{a.name}</div>
-								<div class="track">
-									<div class="fill" style="width:{Math.max((a.open / maxAssignee) * 100, 4)}%;background:var(--accent)"></div>
-								</div>
-								<div class="bn">{a.open}</div>
-							</div>
-						{/each}
-					{/if}
-				</div>
-			</div>
-
-			<div class="panel">
 				<div class="panel-head"><h3>Created vs. resolved — last 8 weeks</h3></div>
 				<div class="panel-body">
 					{#if total === 0}
 						<div class="empty"><Icon name="dashboard" /><span>No activity yet</span></div>
 					{:else}
-						<div class="trend">
-							{#each data.trend as b (b.label)}
-								<div class="trend-col" title="{b.label}: {b.created} created, {b.resolved} resolved">
-									<div class="trend-bars">
-										<div class="tb tb-created" style="height:{(b.created / maxTrend) * 100}%"></div>
-										<div class="tb tb-resolved" style="height:{(b.resolved / maxTrend) * 100}%"></div>
-									</div>
-									<div class="trend-label">{b.label}</div>
-								</div>
-							{/each}
+						<div class="trend" bind:clientWidth={plotW}>
+							<svg
+								class="trend-plot"
+								width={plotW}
+								height={PLOT_H}
+								role="img"
+								aria-label="Issues created versus resolved over the last {data.trend.length} weeks"
+							>
+								{#if trendLine}
+									{#each trendLine.grid as y, i (i)}
+										<line class="grid" x1={PLOT_LEFT} x2={plotW} y1={y} y2={y} />
+									{/each}
+									<text class="axis-n" x={PLOT_LEFT - 7} y={trendLine.topY}>{maxTrend}</text>
+									<text class="axis-n" x={PLOT_LEFT - 7} y={trendLine.zeroY}>0</text>
+									<polyline class="ln ln-resolved" points={polyline(trendLine.resolved)} />
+									<polyline class="ln ln-created" points={polyline(trendLine.created)} />
+									{#each trendLine.resolved as p (p.label)}
+										<circle class="dot dot-resolved" cx={p.x} cy={p.y} r="3.2">
+											<title>{p.label}: {p.v} resolved</title>
+										</circle>
+									{/each}
+									{#each trendLine.created as p (p.label)}
+										<circle class="dot dot-created" cx={p.x} cy={p.y} r="3.2">
+											<title>{p.label}: {p.v} created</title>
+										</circle>
+									{/each}
+								{/if}
+							</svg>
+							<div class="trend-axis" style="padding-left:{PLOT_LEFT}px">
+								{#each data.trend as b, i (b.label)}
+									<span class="trend-label" title="{b.label}: {b.created} created, {b.resolved} resolved">
+										{(data.trend.length - 1 - i) % labelStride === 0 ? b.label : ''}
+									</span>
+								{/each}
+							</div>
 						</div>
 						<div class="legend">
 							<span><i style="background:var(--accent)"></i>Created</span>
@@ -176,7 +208,7 @@
 				</div>
 			</div>
 
-			<div class="panel wide">
+			<div class="panel">
 				<div class="panel-head"><h3>Recent activity</h3></div>
 				<div class="panel-body">
 					{#if recent.length === 0}
@@ -186,11 +218,14 @@
 							<div class="act-item">
 								<span class="act-dot" style="background:{STATUS_META[issue.status].color}"></span>
 								<div class="ai-body">
-									<b>{userName(issue.reporterId)}</b> reported
-									<button class="mid" onclick={() => openDrawer(issue)}>{issue.id}</button> — {issue.title}
-									<span style="color:var(--faint)">in {issue.appName}{issue.moduleName ? ` / ${issue.moduleName}` : ''}</span>
+									<div class="ai-line">
+										<button class="mid" onclick={() => openDrawer(issue)}>{issue.id}</button>
+										<span class="ai-title" title={issue.title}>{issue.title}</span>
+									</div>
+									<div class="ai-meta">
+										{userName(issue.reporterId)} · {issue.appName}{issue.moduleName ? ` / ${issue.moduleName}` : ''} · {relDate(issue.updatedAt)}
+									</div>
 								</div>
-								<div class="ai-time">{relDate(issue.updatedAt)}</div>
 							</div>
 						{/each}
 					{/if}
@@ -223,45 +258,57 @@
 		opacity: 0.5;
 	}
 	.trend {
-		display: flex;
-		align-items: flex-end;
-		gap: 6px;
-		height: 140px;
 		padding-top: 8px;
 	}
-	.trend-col {
-		flex: 1;
+	.trend-plot {
+		display: block;
+	}
+	.trend-plot .grid {
+		stroke: var(--line-2);
+		stroke-width: 1;
+	}
+	.trend-plot .axis-n {
+		font-size: 9.5px;
+		fill: var(--faint);
+		text-anchor: end;
+		dominant-baseline: middle;
+	}
+	.trend-plot .ln {
+		fill: none;
+		stroke-width: 2;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+	.trend-plot .ln-created {
+		stroke: var(--accent);
+	}
+	.trend-plot .ln-resolved {
+		stroke: var(--done);
+	}
+	/* A ring in the card colour keeps a point readable where the two lines cross. */
+	.trend-plot .dot {
+		stroke: var(--surface);
+		stroke-width: 1.5;
+	}
+	.trend-plot .dot-created {
+		fill: var(--accent);
+	}
+	.trend-plot .dot-resolved {
+		fill: var(--done);
+	}
+	.trend-axis {
 		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 6px;
-		height: 100%;
-	}
-	.trend-bars {
-		flex: 1;
-		width: 100%;
-		display: flex;
-		align-items: flex-end;
-		justify-content: center;
-		gap: 3px;
-	}
-	.tb {
-		width: 42%;
-		min-height: 2px;
-		border-radius: 3px 3px 0 0;
-	}
-	.tb-created {
-		background: var(--accent);
-	}
-	.tb-resolved {
-		background: var(--done);
+		margin-top: 5px;
 	}
 	.trend-label {
+		flex: 1;
+		min-width: 0;
 		font-size: 10.5px;
 		color: var(--faint);
-		/* Wraps to "Jun / 15" rather than pushing the last week out of the card:
-		   five panels to a row leaves each chart about 330px. */
 		text-align: center;
+		/* Never wraps — `labelStride` drops every other date instead when the
+		   columns get too narrow for one. */
+		white-space: nowrap;
 		line-height: 1.25;
 	}
 	.legend {

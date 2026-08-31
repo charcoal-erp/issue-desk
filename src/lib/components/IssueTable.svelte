@@ -1,5 +1,6 @@
 <script lang="ts">
 	import type { Application, Issue, IssueFilter, User } from '$lib/types';
+	import { COLUMNS, columns } from '$lib/stores/columns.svelte';
 	import Icon from './Icon.svelte';
 	import IssueRow from './IssueRow.svelte';
 
@@ -27,6 +28,10 @@
 		new Map(applications.map((a) => [a.id, a.color] as const))
 	);
 
+	// One list drives both the headers here and the cells in each row, so a
+	// hidden column cannot go out of step between the two.
+	const shown = $derived(COLUMNS.filter((c) => columns.visible[c.key]));
+
 	function arrow(key: string): string {
 		if ((filter.sort ?? 'updated') !== key) return '';
 		return (filter.dir ?? 'desc') === 'asc' ? '▲' : '▼';
@@ -41,13 +46,16 @@
 					<th class="rail"></th>
 					<th class="sortable" onclick={() => onSort('id')}>ID <span class="sarrow">{arrow('id')}</span></th>
 					<th class="sortable" onclick={() => onSort('title')}>Issue <span class="sarrow">{arrow('title')}</span></th>
-					<th>App / Module</th>
-					<th class="sortable" onclick={() => onSort('priority')}>Priority <span class="sarrow">{arrow('priority')}</span></th>
-					<th class="sortable" onclick={() => onSort('status')}>Status <span class="sarrow">{arrow('status')}</span></th>
-					<th>Assignee</th>
-					<th>Files</th>
-					<th class="sortable" onclick={() => onSort('created')}>Reported <span class="sarrow">{arrow('created')}</span></th>
-					<th class="sortable" onclick={() => onSort('updated')}>Updated <span class="sarrow">{arrow('updated')}</span></th>
+					{#each shown as c (c.key)}
+						{#if c.sort}
+							{@const sort = c.sort}
+							<th class="sortable" onclick={() => onSort(sort)}>
+								{c.label} <span class="sarrow">{arrow(sort)}</span>
+							</th>
+						{:else}
+							<th>{c.label}</th>
+						{/if}
+					{/each}
 					<th></th>
 				</tr>
 			</thead>
