@@ -398,6 +398,15 @@ async function applyUpdate(before: Issue, patch: UpdateIssueInput, actor: string
 				id: uuidv7(), at: now, by: actor, kind: 'attachment', from: gone.filename
 			});
 		}
+		// …and note the ones that arrived, so a screenshot dropped on an issue is
+		// attributable to whoever (or whatever) added it. `to` marks an addition,
+		// `from` a removal.
+		const had = new Set(before.attachments.map((a) => a.id));
+		for (const fresh of after.attachments.filter((a) => !had.has(a.id))) {
+			after.activity.push({
+				id: uuidv7(), at: now, by: actor, kind: 'attachment', to: fresh.filename
+			});
+		}
 
 		byId.set(id, after);
 		indexes.update(before, after);

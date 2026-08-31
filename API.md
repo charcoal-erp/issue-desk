@@ -294,6 +294,11 @@ in order on the timeline.
 
 An agent's terminal state is `to-be-verified`. Nothing an agent does closes an issue.
 
+### Attach evidence
+
+`POST /api/agent/issues/<id>/attachments` — a screenshot of the failure, or proof a fix works.
+See [Attachments](#6-attachments).
+
 ### Work through a queue
 
 ```http
@@ -350,6 +355,37 @@ intend to keep running, prefer the `/api/*` endpoints above.
 ---
 
 ## 6. Attachments
+
+### Attach a file to an issue that already exists
+
+```http
+POST /api/agent/issues/CHR-1/attachments
+Content-Type: multipart/form-data
+
+files=@proof.png            # repeatable
+comment=Proof the fix works # optional, recorded as a comment
+```
+
+→ `201` with the updated issue and the attachments that were added:
+
+```json
+{ "issue": { "…": "…" },
+  "added": [ { "filename": "01-proof.png", "kind": "image", "size": 20480,
+               "url": "/api/files/charcoal/CHR-1/01-proof.png",
+               "uploadedBy": "claude-agent", "uploadedAt": "…" } ] }
+```
+
+This is how an automated client files visual evidence: a screenshot of the failure it just
+reproduced, or proof that a fix works before it sets `to-be-verified`. The file appears in the UI's
+gallery like any other attachment, the upload is recorded on the activity trace as
+*Attachment `01-proof.png` added*, and the attachment itself carries `uploadedBy` — so a screenshot
+is always attributable to whoever, or whatever, added it.
+
+`404` for an unknown issue; `400` with a `message` for an unsupported type, an oversized file, or a
+request with no `files` part.
+
+> **Filing a *new* issue with a screenshot** does not use this route — upload first with
+> `issueId=pending`, then create. See the two-step flow below.
 
 ### Upload
 

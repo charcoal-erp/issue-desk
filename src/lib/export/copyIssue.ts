@@ -8,6 +8,7 @@ export function singleIssueMarkdown(issue: Issue, users: User[], baseUrl: string
 		generatedAt: new Date(),
 		filter: {},
 		apps: [],
-		users
+		users,
+		includeActivityTrace: true
 	}).trim();
 }

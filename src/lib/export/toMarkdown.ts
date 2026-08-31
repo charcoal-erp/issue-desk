@@ -1,4 +1,5 @@
 import type { Issue } from '$lib/types';
+import { activityMarkdown } from '$lib/activity';
 import { PRIORITY_META } from '$lib/priority';
 import { STATUS_META } from '$lib/status';
 import { SOURCE_META } from '$lib/source';
@@ -27,6 +28,29 @@ export function issueToMarkdown(issue: Issue, ctx: ExportContext): string {
 			`**Attachments**\n` +
 			issue.attachments.map((a) => `- ${absolutise(ctx.baseUrl, a.url)}`).join('\n') +
 			`\n\n`;
+	}
+
+	// Who said what, in order — the discussion is often where the actual
+	// diagnosis lives, so it travels with the issue rather than being left
+	// behind in the UI.
+	const who = (id: string) => userName(ctx, id) ?? id;
+	const comments = issue.activity.filter((a) => a.kind === 'comment' && a.message);
+	if (comments.length) {
+		out += `**Comments and progress**\n\n`;
+		for (const c of comments) {
+			out += `**${who(c.by)}** · ${fmtExportDate(new Date(c.at))}\n${c.message!.trim()}\n\n`;
+		}
+	}
+
+	if (ctx.includeActivityTrace) {
+		const history = issue.activity.filter((a) => a.kind !== 'comment');
+		if (history.length) {
+			out += `**Activity trace**\n`;
+			for (const entry of history) {
+				out += `- ${fmtExportDate(new Date(entry.at))} · ${activityMarkdown(entry, who)}\n`;
+			}
+			out += `\n`;
+		}
 	}
 	return out;
 }

@@ -31,6 +31,6 @@
 		width: 4px;
 		height: 11px;
 		border-radius: 2px;
-		background: #e3e7ed;
+		background: var(--pip-empty);
 	}
 </style>

@@ -10,6 +10,14 @@
 			rel="stylesheet"
 		/>
 		%sveltekit.head%
+		<script>
+			// Applied before first paint: a theme decided after hydration would show
+			// one frame of the wrong one. "system" stores nothing and follows the OS.
+			try {
+				var t = localStorage.getItem('issuedesk_theme');
+				if (t === 'dark' || t === 'light') document.documentElement.dataset.theme = t;
+			} catch (e) {}
+		</script>
 	</head>
 	<body data-sveltekit-preload-data="hover">
 		<div style="display: contents">%sveltekit.body%</div>

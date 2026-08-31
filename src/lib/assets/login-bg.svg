@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMid slice">
+  <!-- Soft brand-coloured washes plus a faint grid: enough texture to stop the
+       page reading as a blank sheet, light enough to never compete with the form. -->
+  <defs>
+    <radialGradient id="a" cx="18%" cy="22%" r="52%">
+      <stop offset="0%" stop-color="#5B4BFF" stop-opacity=".28"/>
+      <stop offset="100%" stop-color="#5B4BFF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="b" cx="84%" cy="14%" r="46%">
+      <stop offset="0%" stop-color="#3B82F6" stop-opacity=".20"/>
+      <stop offset="100%" stop-color="#3B82F6" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="c" cx="72%" cy="88%" r="55%">
+      <stop offset="0%" stop-color="#2FA36B" stop-opacity=".16"/>
+      <stop offset="100%" stop-color="#2FA36B" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="d" cx="30%" cy="95%" r="45%">
+      <stop offset="0%" stop-color="#7C3AED" stop-opacity=".16"/>
+      <stop offset="100%" stop-color="#7C3AED" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" fill="none" stroke="#64748B" stroke-opacity=".10" stroke-width="1"/>
+    </pattern>
+    <linearGradient id="fade" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#fff" stop-opacity="1"/>
+      <stop offset="70%" stop-color="#fff" stop-opacity=".35"/>
+      <stop offset="100%" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <mask id="gridFade"><rect width="1440" height="900" fill="url(#fade)"/></mask>
+  </defs>
+  <rect width="1440" height="900" fill="url(#grid)" mask="url(#gridFade)"/>
+  <rect width="1440" height="900" fill="url(#a)"/>
+  <rect width="1440" height="900" fill="url(#b)"/>
+  <rect width="1440" height="900" fill="url(#c)"/>
+  <rect width="1440" height="900" fill="url(#d)"/>
+</svg>

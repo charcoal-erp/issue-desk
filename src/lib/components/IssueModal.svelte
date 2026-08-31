@@ -680,7 +680,7 @@
 		padding: 4px 10px;
 		border-radius: 999px;
 		border: 1px solid var(--accent-soft);
-		background: #fff;
+		background: var(--surface);
 		cursor: pointer;
 	}
 	.ai-mode.on {
@@ -704,7 +704,7 @@
 	}
 	.ai-preview {
 		margin-top: 10px;
-		background: #fff;
+		background: var(--surface);
 		border: 1px solid var(--accent-soft);
 		border-radius: 8px;
 		overflow: hidden;
@@ -752,7 +752,7 @@
 		padding: 3px 9px;
 		border-radius: 999px;
 		border: 1px dashed var(--accent-soft);
-		background: #fff;
+		background: var(--surface);
 		color: var(--accent-ink);
 		cursor: pointer;
 	}

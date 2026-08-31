@@ -1,73 +1,108 @@
 <script lang="ts">
 	import { enhance } from '$app/forms';
 	import { page } from '$app/state';
+	import loginBg from '$lib/assets/login-bg.svg';
 	import Icon from '$lib/components/Icon.svelte';
 
 	let { data, form } = $props();
 
 	const redirectTo = $derived(page.url.searchParams.get('redirectTo') ?? '');
 	let submitting = $state(false);
+
+	const POINTS = [
+		{ icon: 'rows', text: 'Filter a set of issues, export them as one ready-to-paste prompt' },
+		{ icon: 'layers', text: 'Park work in a backlog that stays out of the queue until you want it' },
+		{ icon: 'terminal', text: 'Agents sign in over the same API and work the queue on their own' }
+	];
 </script>
 
-<svelte:head><title>Sign in — {data.productName}</title></svelte:head>
-
-<div class="signin">
-	<div class="card">
-		<div class="mark"><Icon name="logo" /></div>
-		<h1>{data.productName}</h1>
-		<p class="sub">Sign in to file, triage and fix issues.</p>
-
-		<form
-			method="POST"
-			use:enhance={() => {
-				submitting = true;
-				return async ({ update }) => {
-					await update();
-					submitting = false;
-				};
-			}}
-		>
-			<input type="hidden" name="redirectTo" value={redirectTo} />
-
-			<div class="field full">
-				<label for="username">Username</label>
-				<!-- svelte-ignore a11y_autofocus -->
-				<input
-					id="username"
-					name="username"
-					autocomplete="username"
-					autocapitalize="none"
-					spellcheck="false"
-					autofocus
-					required
-					value={form?.username ?? ''}
-				/>
+<div class="signin" style:--login-bg={`url("${loginBg}")`}>
+	<div class="frame">
+		<section class="pitch">
+			<div class="brand">
+				<span class="mark"><Icon name="logo" /></span>
+				<span class="pname">{data.productName}</span>
 			</div>
+			<h1>File it, triage it, fix it.</h1>
+			<p class="blurb">
+				A file-backed tracker for QA, dev-testers and the Claude Code sessions that do the fixing.
+				No database — every issue is a JSON file you can read, diff and commit.
+			</p>
+			<ul class="points">
+				{#each POINTS as point (point.icon)}
+					<li><Icon name={point.icon} /><span>{point.text}</span></li>
+				{/each}
+			</ul>
+		</section>
 
-			<div class="field full">
-				<label for="password">Password</label>
-				<input
-					id="password"
-					name="password"
-					type="password"
-					autocomplete="current-password"
-					required
-				/>
+		<section class="card">
+			<div class="card-brand">
+				<span class="mark"><Icon name="logo" /></span>
+				<span class="pname">{data.productName}</span>
 			</div>
+			<h2>Welcome back</h2>
+			<p class="sub">Sign in to file, triage and fix issues.</p>
 
-			{#if form?.message}
-				<p class="err" role="alert">{form.message}</p>
-			{/if}
+			<form
+				method="POST"
+				use:enhance={() => {
+					submitting = true;
+					return async ({ update }) => {
+						await update();
+						submitting = false;
+					};
+				}}
+			>
+				<input type="hidden" name="redirectTo" value={redirectTo} />
 
-			<button class="btn btn-primary full" type="submit" disabled={submitting}>
-				{submitting ? 'Signing in…' : 'Sign in'}
-			</button>
-		</form>
+				<div class="field full">
+					<label for="username">Username</label>
+					<div class="with-icon">
+						<Icon name="user" />
+						<!-- svelte-ignore a11y_autofocus -->
+						<input
+							id="username"
+							name="username"
+							autocomplete="username"
+							autocapitalize="none"
+							spellcheck="false"
+							placeholder="your username"
+							autofocus
+							required
+							value={form?.username ?? ''}
+						/>
+					</div>
+				</div>
 
-		<p class="hint">
-			Agents sign in the same way, over <code>POST /api/auth/login</code>, and use the returned
-			token as a bearer credential.
-		</p>
+				<div class="field full">
+					<label for="password">Password</label>
+					<div class="with-icon">
+						<Icon name="key" />
+						<input
+							id="password"
+							name="password"
+							type="password"
+							autocomplete="current-password"
+							placeholder="••••••••"
+							required
+						/>
+					</div>
+				</div>
+
+				{#if form?.message}
+					<p class="err" role="alert"><Icon name="warning" />{form.message}</p>
+				{/if}
+
+				<button class="btn btn-primary full" type="submit" disabled={submitting}>
+					{submitting ? 'Signing in…' : 'Sign in'}
+				</button>
+			</form>
+
+			<p class="hint">
+				Agents sign in the same way, over <code>POST /api/auth/login</code>, and use the returned
+				token as a bearer credential.
+			</p>
+		</section>
 	</div>
 </div>
 
@@ -77,33 +112,112 @@
 		display: grid;
 		place-items: center;
 		padding: 24px;
-		background: var(--paper);
+		/* Three layers: the artwork on top, then two wide gradients so the page
+		   never goes flat where the SVG's washes fade out. */
+		background-color: var(--paper);
+		background-image: var(--login-bg),
+			linear-gradient(155deg, var(--accent-soft-2) 0%, transparent 48%),
+			linear-gradient(205deg, var(--verify-soft) 0%, transparent 42%);
+		background-size: cover, 100% 100%, 100% 100%;
+		background-position: center;
+		background-repeat: no-repeat;
 	}
-	.card {
+	.frame {
+		position: relative;
 		width: 100%;
-		max-width: 380px;
-		background: var(--surface);
-		border: 1px solid var(--line);
-		border-radius: var(--radius);
-		box-shadow: var(--shadow-md);
-		padding: 32px 28px 24px;
+		max-width: 940px;
+		display: grid;
+		grid-template-columns: 1fr 380px;
+		gap: 44px;
+		align-items: center;
+	}
+
+	/* ---- left: what this thing is ---- */
+	.pitch {
+		min-width: 0;
+	}
+	.brand,
+	.card-brand {
+		display: flex;
+		align-items: center;
+		gap: 11px;
+		margin-bottom: 22px;
 	}
 	.mark {
-		width: 42px;
-		height: 42px;
+		width: 40px;
+		height: 40px;
+		flex: none;
 		border-radius: var(--radius-sm);
-		background: var(--accent);
-		color: #fff;
+		background: linear-gradient(140deg, var(--accent), #8a7bff);
+		box-shadow: 0 4px 14px rgba(91, 75, 255, 0.32);
 		display: grid;
 		place-items: center;
-		margin-bottom: 16px;
-	}
-	.mark :global(svg) {
 		color: #fff;
 	}
-	h1 {
+	.mark :global(svg) {
+		width: 21px;
+		height: 21px;
+		color: #fff;
+	}
+	.pname {
 		font-family: var(--font-display);
-		font-size: 22px;
+		font-size: 19px;
+		font-weight: 700;
+		letter-spacing: -0.02em;
+		color: var(--ink);
+	}
+	.pitch h1 {
+		font-family: var(--font-display);
+		font-size: 38px;
+		line-height: 1.1;
+		letter-spacing: -0.03em;
+		margin: 0 0 14px;
+		color: var(--ink);
+	}
+	.blurb {
+		margin: 0 0 26px;
+		max-width: 46ch;
+		font-size: 14px;
+		line-height: 1.65;
+		color: var(--muted);
+	}
+	.points {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		display: grid;
+		gap: 13px;
+	}
+	.points li {
+		display: flex;
+		align-items: flex-start;
+		gap: 11px;
+		font-size: 13px;
+		line-height: 1.5;
+		color: var(--ink-2);
+	}
+	.points :global(svg) {
+		width: 16px;
+		height: 16px;
+		flex: none;
+		margin-top: 2px;
+		color: var(--accent);
+	}
+
+	/* ---- right: the form ---- */
+	.card {
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 16px;
+		box-shadow: var(--shadow-lg);
+		padding: 30px 28px 24px;
+	}
+	.card-brand {
+		display: none;
+	}
+	.card h2 {
+		font-family: var(--font-display);
+		font-size: 20px;
 		margin: 0 0 4px;
 		color: var(--ink);
 	}
@@ -116,18 +230,59 @@
 		display: grid;
 		gap: 14px;
 	}
+	.with-icon {
+		position: relative;
+		display: flex;
+		align-items: center;
+	}
+	.with-icon :global(svg) {
+		position: absolute;
+		left: 11px;
+		width: 15px;
+		height: 15px;
+		color: var(--faint);
+		pointer-events: none;
+	}
+	.with-icon input {
+		width: 100%;
+		padding: 10px 12px 10px 34px;
+		border: 1px solid var(--line);
+		border-radius: 9px;
+		background: var(--surface);
+		color: var(--ink);
+		outline: none;
+		transition: 0.15s;
+	}
+	.with-icon input::placeholder {
+		color: var(--faint);
+	}
+	.with-icon input:focus {
+		border-color: var(--accent);
+		box-shadow: 0 0 0 3px var(--accent-soft);
+	}
+	.with-icon:focus-within :global(svg) {
+		color: var(--accent);
+	}
 	.btn.full {
 		width: 100%;
 		justify-content: center;
 		margin-top: 4px;
 	}
 	.err {
+		display: flex;
+		align-items: center;
+		gap: 8px;
 		margin: 0;
 		padding: 9px 11px;
 		border-radius: var(--radius-xs);
 		background: var(--open-soft);
 		color: var(--open);
 		font-size: 13px;
+	}
+	.err :global(svg) {
+		width: 15px;
+		height: 15px;
+		flex: none;
 	}
 	.hint {
 		margin: 22px 0 0;
@@ -141,5 +296,21 @@
 		font-family: var(--font-mono);
 		font-size: 11px;
 		color: var(--muted);
+	}
+
+	/* Below the split, the pitch would push the form off the fold — the card
+	   carries its own brand line instead. */
+	@media (max-width: 860px) {
+		.frame {
+			grid-template-columns: 1fr;
+			max-width: 400px;
+			gap: 0;
+		}
+		.pitch {
+			display: none;
+		}
+		.card-brand {
+			display: flex;
+		}
 	}
 </style>

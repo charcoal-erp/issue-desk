@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { toMarkdown } from '$lib/export/toMarkdown';
+import { singleIssueMarkdown } from '$lib/export/copyIssue';
 import { toJson } from '$lib/export/toJson';
 import { humanFilter, type ExportContext } from '$lib/export/context';
 import type { Issue } from '$lib/types';
@@ -40,7 +41,17 @@ const issue: Issue = {
 			uploadedAt: '2026-07-18T14:03:00+05:30'
 		}
 	],
-	activity: [],
+	activity: [
+		{ id: 'e1', at: '2026-07-18T14:03:00+05:30', by: 'anant', kind: 'created' },
+		{
+			id: 'e2',
+			at: '2026-07-18T15:10:00+05:30',
+			by: 'kiran',
+			kind: 'comment',
+			message: 'Root cause: rounding runs before the discount.'
+		},
+		{ id: 'e3', at: '2026-07-18T16:00:00+05:30', by: 'kiran', kind: 'status', to: 'in-progress' }
+	],
 	createdAt: '2026-07-18T14:03:00+05:30',
 	updatedAt: '2026-07-18T14:03:00+05:30'
 };
@@ -77,6 +88,38 @@ describe('toMarkdown', () => {
 		expect(md).toContain(
 			'- https://issuedesk.internal/api/files/charcoal/CHR-1/01-journal.png'
 		);
+	});
+});
+
+describe('single-issue copy', () => {
+	it('carries comments with their author under "Comments and progress"', () => {
+		const md = singleIssueMarkdown(issue, SEED_USERS, 'https://desk.example.com');
+		expect(md).toContain('**Comments and progress**');
+		expect(md).toContain('Root cause: rounding runs before the discount.');
+		// Attributed to a person, not left anonymous.
+		const who = SEED_USERS.find((u) => u.id === 'kiran')?.name ?? 'kiran';
+		expect(md).toContain(`**${who}**`);
+	});
+
+	it('carries the activity trace', () => {
+		const md = singleIssueMarkdown(issue, SEED_USERS, 'https://desk.example.com');
+		expect(md).toContain('**Activity trace**');
+		expect(md).toContain('created this issue');
+		expect(md).toContain('Status moved to **In-progress**');
+	});
+
+	it('keeps the comment body out of the trace, so nothing is said twice', () => {
+		const md = singleIssueMarkdown(issue, SEED_USERS, 'https://desk.example.com');
+		const trace = md.slice(md.indexOf('**Activity trace**'));
+		expect(trace).not.toContain('Root cause');
+	});
+});
+
+describe('batch export', () => {
+	it('includes the discussion but not the field-change log', () => {
+		const md = toMarkdown([issue], ctx);
+		expect(md).toContain('**Comments and progress**');
+		expect(md).not.toContain('**Activity trace**');
 	});
 });
 

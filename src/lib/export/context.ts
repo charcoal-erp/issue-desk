@@ -9,6 +9,12 @@ export interface ExportContext {
 	filter: IssueFilter;
 	apps: Application[];
 	users: User[];
+	/**
+	 * The single-issue "Copy for Claude Code" carries the whole activity trace;
+	 * a batch of fifty would drown the prompt in it, so batches get the comments
+	 * (which are substance) without the field-change log (which is bookkeeping).
+	 */
+	includeActivityTrace?: boolean;
 }
 
 export function userName(ctx: ExportContext, id: string | undefined): string | undefined {

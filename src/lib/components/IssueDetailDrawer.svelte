@@ -3,7 +3,8 @@
 	import { page } from '$app/state';
 	import { marked } from 'marked';
 	import DOMPurify from 'dompurify';
-	import type { Application, Issue, User } from '$lib/types';
+	import type { Activity, Application, Issue, User } from '$lib/types';
+	import { describeActivity } from '$lib/activity';
 	import { STATUS_ORDER, STATUS_META } from '$lib/status';
 	import { SOURCE_META } from '$lib/source';
 	import { PRIORITY_META } from '$lib/priority';
@@ -117,21 +118,10 @@
 		return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 	}
 
-	function activityText(kind: string, from?: string, to?: string, by?: string): string {
-		switch (kind) {
-			case 'status':
-				return `Status moved to <b>${STATUS_META[to as keyof typeof STATUS_META]?.label ?? to}</b>`;
-			case 'priority':
-				return `Priority changed to <b>${PRIORITY_META[to as keyof typeof PRIORITY_META]?.label ?? to}</b>`;
-			case 'assignee':
-				return to ? `Assigned to <b>${esc(userName(to))}</b>` : 'Unassigned';
-			case 'edit':
-				return `<b>${esc(userName(by ?? ''))}</b> edited this issue`;
-			case 'attachment':
-				return `Attachment <b>${esc(from ?? '')}</b> removed`;
-			default:
-				return `<b>${esc(userName(by ?? ''))}</b> updated this issue`;
-		}
+	/** The same line the Markdown export builds, emphasised with <b> instead. */
+	function activityText(entry: Activity): string {
+		const { lead, value, trail } = describeActivity(entry, userName);
+		return `${esc(lead)}${value ? `<b>${esc(value)}</b>` : ''}${esc(trail)}`;
 	}
 </script>
 
@@ -316,7 +306,7 @@
 					{:else}
 						<div class="tl-item muted">
 							<!-- eslint-disable-next-line svelte/no-at-html-tags — built from known labels -->
-							<div class="tl-txt">{@html activityText(entry.kind, entry.from, entry.to, entry.by)}</div>
+							<div class="tl-txt">{@html activityText(entry)}</div>
 							<div class="tl-time">{fmtDate(entry.at)}</div>
 						</div>
 					{/if}
@@ -381,13 +371,13 @@
 		display: flex;
 		align-items: center;
 		gap: 9px;
-		background: #e0f5f3;
-		border: 1px solid #b8e6e1;
+		background: var(--teal-soft);
+		border: 1px solid var(--teal-line);
 		border-radius: 11px;
 		padding: 10px 13px;
 		margin-bottom: 16px;
 		font-size: 12.5px;
-		color: #0b6a62;
+		color: var(--teal-ink);
 		text-decoration: none;
 	}
 	.test-origin :global(svg) {
@@ -399,6 +389,6 @@
 		font-family: var(--font-mono);
 	}
 	.test-origin:hover {
-		border-color: #0d9488;
+		border-color: var(--teal);
 	}
 </style>
