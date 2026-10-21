@@ -138,8 +138,10 @@ Full HTTP reference: **[API.md](API.md)**. The agent loop in narrative form:
 | `ISSUEDESK_ADMIN_PASSWORD` | _(generated)_ | First-boot admin password. Unset = generated and printed to the log once |
 | `CHECKPOINT_URL` | _(unset)_ | Optional — base URL of a Checkpoint instance, for the "view test case" back-link on issues filed from a test |
 | `ISSUEDESK_INGEST_TOKEN` | _(unset)_ | Optional — when set, `POST /api/issues` also accepts this bearer token instead of a login, for an existing Checkpoint |
-| `DATA_SNAPSHOTS` | `true` | Write a rotating boot snapshot of the JSON data to `data/.backups/` |
-| `DATA_SNAPSHOT_KEEP` | `10` | How many boot snapshots to retain |
+| `DATA_SNAPSHOTS` | `true` | Write rotating snapshots of the JSON data to `data/.backups/` (at boot, then hourly when changed) |
+| `DATA_SNAPSHOT_INTERVAL_MINUTES` | `60` | Minutes between scheduled snapshots; `0` keeps boot snapshots only |
+| `DATA_SNAPSHOT_KEEP` | `48` | How many of the newest snapshots to retain |
+| `DATA_SNAPSHOT_DAYS` | `14` | Also keep the last snapshot of each of this many most recent days |
 | `PORT` | `3000` | adapter-node port |
 
 ## Data layout
@@ -160,9 +162,11 @@ content is a separate app with its own data root; nothing test-related is stored
 
 The `data/` files are the database. Two safety nets protect them:
 
-- **Automatic boot snapshots.** On every server start, the small structured data (config +
-  all issue JSON) is copied to a rotating restore point under `data/.backups/<ts>/`
-  (last 10 kept; `DATA_SNAPSHOTS=false` to disable, `DATA_SNAPSHOT_KEEP` to tune). `.backups`
+- **Automatic snapshots.** On every server start, and then every hour while the data has
+  changed, the small structured data (config + all issue JSON) is copied to a restore point
+  under `data/.backups/<ts>/`. The newest 48 are kept, plus the last one of each of the newest
+  14 days (`DATA_SNAPSHOTS=false` to disable; `DATA_SNAPSHOT_KEEP`, `DATA_SNAPSHOT_DAYS` and
+  `DATA_SNAPSHOT_INTERVAL_MINUTES` to tune). `.backups`
   is outside every reader and the watcher, so it never feeds back into the store. To restore,
   copy a snapshot's folders back over `data/` and restart.
 - **On-demand full archive.** `npm run backup:data` tars all of `data/` (uploads included) to

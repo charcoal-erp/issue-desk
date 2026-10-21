@@ -123,9 +123,13 @@ export async function reload(): Promise<void> {
 	// Hold every write lock while re-reading: a write that lands between
 	// reading a file and the swap would otherwise be dropped from memory, and
 	// the next persist of that file would erase it from disk too.
-	const keys = [CONFIG_LOCK, ...appsList.map((a) => `app:${a.id}`)];
-	loadPromise = withLocks(keys, load);
+	loadPromise = withAllWriteLocks(load);
 	await loadPromise;
+}
+
+/** Run `fn` with every store write paused — config and every application. */
+export function withAllWriteLocks<T>(fn: () => Promise<T>): Promise<T> {
+	return withLocks([CONFIG_LOCK, ...appsList.map((a) => `app:${a.id}`)], fn);
 }
 
 // ---------- reference data ----------

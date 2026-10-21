@@ -3,12 +3,13 @@ import { env } from '$env/dynamic/private';
 import { SESSION_COOKIE, failureMessage, resolveRequest } from '$lib/server/auth';
 import { bootstrapAdmin } from '$lib/server/auth/credentials';
 import { ensureLoaded, reload, sweepPending } from '$lib/server/store';
-import { snapshotOnBoot } from '$lib/server/store/backup';
+import { snapshotOnBoot, startSnapshotSchedule } from '$lib/server/store/backup';
 import { startWatcherIfEnabled } from '$lib/server/store/watch';
 
 export const init: ServerInit = async () => {
 	await ensureLoaded();
 	await snapshotOnBoot(); // rotating restore point of the file-backed data
+	startSnapshotSchedule(); // and another every hour while data changes
 	await bootstrapAdmin(); // first run only: an admin nobody could otherwise create
 	await sweepPending();
 	await startWatcherIfEnabled(async () => {
