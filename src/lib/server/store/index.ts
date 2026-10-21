@@ -28,7 +28,7 @@ import { writeJsonAtomic } from '../fs/write';
 import { deleteUploadFile, movePendingUploads } from '../uploads';
 import { SEED_CATEGORIES, seedDataDir } from './seed';
 import { IssueIndexes, intersect, unionOf } from './indexes';
-import { withLock } from './mutex';
+import { withLock, withLocks } from './mutex';
 
 /**
  * IssueStore singleton (§10). Node keeps module singletons alive for the
@@ -44,9 +44,12 @@ let appsList: Application[] = [];
 let categoriesList: Category[] = [];
 let settingsObj: Settings = { productName: 'IssueDesk', defaultPageSize: 50 };
 
-const byId = new Map<string, Issue>();
-const indexes = new IssueIndexes();
-const sequences = new Map<string, { code: string; next: number }>();
+let byId = new Map<string, Issue>();
+let indexes = new IssueIndexes();
+let sequences = new Map<string, { code: string; next: number }>();
+
+/** Lock key for writes to the config lists (users, applications, categories). */
+const CONFIG_LOCK = 'config';
 
 async function bootstrapIfEmpty(): Promise<void> {
 	try {
@@ -57,24 +60,39 @@ async function bootstrapIfEmpty(): Promise<void> {
 	}
 }
 
+/**
+ * Read everything into fresh structures, then swap them in with no await in
+ * between. Clearing the live maps and refilling them across awaits left a
+ * window where a write saw a half-empty store and persisted that — on
+ * 2026-10-21 it truncated a module file mid-burst and lost 53 issues.
+ */
 async function load(): Promise<void> {
 	await bootstrapIfEmpty();
-	usersList = await loadUsers();
-	appsList = await loadApplications();
-	categoriesList = await ensureCategoriesFile();
-	settingsObj = await loadSettings();
-	byId.clear();
-	clearIndexes();
+	const nextUsers = await loadUsers();
+	const nextApps = await loadApplications();
+	const nextCategories = await ensureCategoriesFile();
+	const nextSettings = await loadSettings();
+	const nextById = new Map<string, Issue>();
+	const nextIndexes = new IssueIndexes();
 	for (const file of await loadAllIssues()) {
 		for (const issue of file.issues) {
-			byId.set(issue.id, issue);
-			indexes.add(issue);
+			nextById.set(issue.id, issue);
+			nextIndexes.add(issue);
 		}
 	}
-	for (const app of appsList) {
+	const nextSequences = new Map<string, { code: string; next: number }>();
+	for (const app of nextApps) {
 		const seq = await loadSequence(app.id);
-		sequences.set(app.id, seq ?? { code: app.code, next: 1 });
+		nextSequences.set(app.id, seq ?? { code: app.code, next: 1 });
 	}
+
+	usersList = nextUsers;
+	appsList = nextApps;
+	categoriesList = nextCategories;
+	settingsObj = nextSettings;
+	byId = nextById;
+	indexes = nextIndexes;
+	sequences = nextSequences;
 	loaded = true;
 }
 
@@ -102,7 +120,11 @@ export async function ensureLoaded(): Promise<void> {
 
 /** Rebuild the in-memory cache from disk (used by the WATCH_FILES re-sync). */
 export async function reload(): Promise<void> {
-	loadPromise = load();
+	// Hold every write lock while re-reading: a write that lands between
+	// reading a file and the swap would otherwise be dropped from memory, and
+	// the next persist of that file would erase it from disk too.
+	const keys = [CONFIG_LOCK, ...appsList.map((a) => `app:${a.id}`)];
+	loadPromise = withLocks(keys, load);
 	await loadPromise;
 }
 
@@ -457,9 +479,11 @@ export async function claim(id: string, actor: string): Promise<ClaimResult> {
 
 export async function remove(id: string, _actor: string): Promise<void> {
 	await ensureLoaded();
-	const issue = byId.get(id);
-	if (!issue) throw new Error(`Issue ${id} not found`);
-	await withLock(`app:${issue.appId}`, async () => {
+	const existing = byId.get(id);
+	if (!existing) throw new Error(`Issue ${id} not found`);
+	await withLock(`app:${existing.appId}`, async () => {
+		const issue = byId.get(id);
+		if (!issue) return;
 		byId.delete(id);
 		indexes.remove(issue);
 		await persistModule(issue.appId, moduleFileKey(issue));
@@ -479,9 +503,11 @@ export async function addAttachments(
 
 export async function comment(id: string, message: string, actor: string): Promise<Issue> {
 	await ensureLoaded();
-	const before = byId.get(id);
-	if (!before) throw new Error(`Issue ${id} not found`);
-	return withLock(`app:${before.appId}`, async () => {
+	const existing = byId.get(id);
+	if (!existing) throw new Error(`Issue ${id} not found`);
+	return withLock(`app:${existing.appId}`, async () => {
+		const before = byId.get(id);
+		if (!before) throw new Error(`Issue ${id} not found`);
 		const now = new Date().toISOString();
 		const after: Issue = {
 			...before,
@@ -501,31 +527,37 @@ export async function comment(id: string, message: string, actor: string): Promi
 // ---------- reference-data mutations (admin, FR-8) ----------
 export async function upsertUser(user: User): Promise<void> {
 	await ensureLoaded();
-	const i = usersList.findIndex((u) => u.id === user.id);
-	if (i >= 0) usersList[i] = user;
-	else usersList.push(user);
-	await writeJsonAtomic(path.join(configDir(), 'users.json'), usersList);
+	await withLock(CONFIG_LOCK, async () => {
+		const i = usersList.findIndex((u) => u.id === user.id);
+		if (i >= 0) usersList[i] = user;
+		else usersList.push(user);
+		await writeJsonAtomic(path.join(configDir(), 'users.json'), usersList);
+	});
 }
 
 export async function upsertApplication(app: Application): Promise<void> {
 	await ensureLoaded();
-	const i = appsList.findIndex((a) => a.id === app.id);
-	if (i >= 0) appsList[i] = app;
-	else {
-		appsList.push(app);
-		sequences.set(app.id, { code: app.code, next: 1 });
-		await writeJsonAtomic(sequenceFile(app.id), { code: app.code, next: 1 });
-	}
-	await writeJsonAtomic(path.join(configDir(), 'applications.json'), appsList);
+	await withLock(CONFIG_LOCK, async () => {
+		const i = appsList.findIndex((a) => a.id === app.id);
+		if (i >= 0) appsList[i] = app;
+		else {
+			appsList.push(app);
+			sequences.set(app.id, { code: app.code, next: 1 });
+			await writeJsonAtomic(sequenceFile(app.id), { code: app.code, next: 1 });
+		}
+		await writeJsonAtomic(path.join(configDir(), 'applications.json'), appsList);
+	});
 	// Denormalised labels on issues refresh lazily on next edit (§8).
 }
 
 export async function upsertCategory(category: Category): Promise<void> {
 	await ensureLoaded();
-	const i = categoriesList.findIndex((c) => c.id === category.id);
-	if (i >= 0) categoriesList[i] = category;
-	else categoriesList.push(category);
-	await writeJsonAtomic(path.join(configDir(), 'categories.json'), categoriesList);
+	await withLock(CONFIG_LOCK, async () => {
+		const i = categoriesList.findIndex((c) => c.id === category.id);
+		if (i >= 0) categoriesList[i] = category;
+		else categoriesList.push(category);
+		await writeJsonAtomic(path.join(configDir(), 'categories.json'), categoriesList);
+	});
 }
 
 /**
@@ -535,10 +567,12 @@ export async function upsertCategory(category: Category): Promise<void> {
  */
 export async function removeCategory(id: string): Promise<void> {
 	await ensureLoaded();
-	const next = categoriesList.filter((c) => c.id !== id);
-	if (next.length === categoriesList.length) return;
-	categoriesList = next;
-	await writeJsonAtomic(path.join(configDir(), 'categories.json'), categoriesList);
+	await withLock(CONFIG_LOCK, async () => {
+		const next = categoriesList.filter((c) => c.id !== id);
+		if (next.length === categoriesList.length) return;
+		categoriesList = next;
+		await writeJsonAtomic(path.join(configDir(), 'categories.json'), categoriesList);
+	});
 }
 
 function clearIndexes(): void {

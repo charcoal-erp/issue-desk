@@ -16,3 +16,13 @@ export async function withLock<T>(key: string, fn: () => Promise<T>): Promise<T>
 	);
 	return run;
 }
+
+/**
+ * Hold several keys at once. Keys are taken in sorted order so two callers
+ * locking overlapping sets can never deadlock on each other.
+ */
+export function withLocks<T>(keys: string[], fn: () => Promise<T>): Promise<T> {
+	const [first, ...rest] = [...new Set(keys)].sort();
+	if (first === undefined) return fn();
+	return withLock(first, () => withLocks(rest, fn));
+}

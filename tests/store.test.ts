@@ -111,6 +111,24 @@ describe('IssueStore.create', () => {
 		const hrFile = JSON.parse(await readFile(path.join(dir, 'issues/charcoal/hr.json'), 'utf8'));
 		expect(hrFile.some((i: { id: string }) => i.id === hr.id)).toBe(true);
 	});
+
+	// Regression: on 2026-10-21 creates racing WATCH_FILES reloads persisted a
+	// half-loaded store and truncated a module file, losing 53 issues.
+	it('loses nothing when creates race store reloads', async () => {
+		const existing = await Promise.all(
+			Array.from({ length: 20 }, (_, i) => store.create({ ...base, title: `Old ${i}` }, 'kiran'))
+		);
+		const fresh: Promise<unknown>[] = [];
+		for (let i = 0; i < 20; i++) {
+			fresh.push(store.reload());
+			fresh.push(store.create({ ...base, title: `New ${i}` }, 'kiran'));
+		}
+		await Promise.all(fresh);
+		const file = JSON.parse(await readFile(path.join(dir, 'issues/charcoal/accounting.json'), 'utf8'));
+		expect(file).toHaveLength(40);
+		for (const issue of existing) expect(store.get(issue.id)).toBeDefined();
+		expect(store.list({ appId: 'charcoal' } as never).total).toBe(40);
+	});
 });
 
 describe('IssueStore.list', () => {
