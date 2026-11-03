@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Application, Category, IssueFilter, Priority, Source, Status } from '$lib/types';
+	import type { Application, Category, IssueFilter, Priority, Source, Status, User } from '$lib/types';
 	import { PRIORITY_META } from '$lib/priority';
 	import { STATUS_META } from '$lib/status';
 	import { SOURCE_META } from '$lib/source';
@@ -9,12 +9,14 @@
 		filter,
 		applications,
 		categories,
+		users,
 		onChange,
 		onClearAll
 	}: {
 		filter: IssueFilter;
 		applications: Application[];
 		categories: Category[];
+		users: User[];
 		onChange: (patch: Partial<IssueFilter>) => void;
 		onClearAll: () => void;
 	} = $props();
@@ -26,6 +28,9 @@
 	);
 	const categoryName = $derived(
 		categories.find((c) => c.id === filter.categoryId)?.name ?? filter.categoryId
+	);
+	const reporterName = $derived(
+		users.find((u) => u.id === filter.reporterId)?.name ?? filter.reporterId
 	);
 	const dateLabel = $derived(
 		filter.updatedFrom && filter.updatedTo
@@ -41,6 +46,7 @@
 			filter.appId ||
 				filter.moduleId ||
 				filter.categoryId ||
+				filter.reporterId ||
 				filter.tag ||
 				filter.status?.length ||
 				filter.priority?.length ||
@@ -87,6 +93,14 @@
 				>Category <b>{categoryName}</b><button
 					aria-label="Remove category filter"
 					onclick={() => onChange({ categoryId: undefined })}><Icon name="x-sm" /></button
+				></span
+			>
+		{/if}
+		{#if filter.reporterId}
+			<span class="chip"
+				>Reported by <b>{reporterName}</b><button
+					aria-label="Remove reported-by filter"
+					onclick={() => onChange({ reporterId: undefined })}><Icon name="x-sm" /></button
 				></span
 			>
 		{/if}

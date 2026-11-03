@@ -2,12 +2,7 @@ import type { PageServerLoad } from './$types';
 import * as store from '$lib/server/store';
 import { STATUSES, PRIORITIES } from '$lib/types';
 import type { Issue, Priority, Status } from '$lib/types';
-
-export interface TrendBucket {
-	label: string; // e.g. "Jul 7"
-	created: number;
-	resolved: number; // completed in that week (proxied by updatedAt while complete)
-}
+import { buildTrend, type TrendBucket } from '$lib/trend';
 
 export interface DashboardData {
 	issues: Issue[];
@@ -25,15 +20,6 @@ export interface DashboardData {
 }
 
 const DAY = 24 * 60 * 60 * 1000;
-
-/** Monday-anchored week start for bucketing. */
-function weekStart(d: Date): Date {
-	const copy = new Date(d);
-	copy.setHours(0, 0, 0, 0);
-	const dow = (copy.getDay() + 6) % 7; // 0 = Monday
-	copy.setDate(copy.getDate() - dow);
-	return copy;
-}
 
 export const load: PageServerLoad = async () => {
 	await store.ensureLoaded();
@@ -71,30 +57,6 @@ export const load: PageServerLoad = async () => {
 		.sort((a, b) => b.count - a.count)
 		.slice(0, 8);
 
-	// Last 8 weeks: created (by createdAt) vs resolved (complete issues by updatedAt).
-	const trend: TrendBucket[] = [];
-	const keyIndex = new Map<number, number>();
-	const thisWeek = weekStart(new Date(now));
-	for (let w = 7; w >= 0; w--) {
-		const start = new Date(thisWeek.getTime() - w * 7 * DAY);
-		keyIndex.set(start.getTime(), trend.length);
-		trend.push({
-			label: start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
-			created: 0,
-			resolved: 0
-		});
-	}
-	const bucketFor = (iso: string): number | undefined =>
-		keyIndex.get(weekStart(new Date(iso)).getTime());
-	for (const i of issues) {
-		const c = bucketFor(i.createdAt);
-		if (c !== undefined) trend[c].created += 1;
-		if (i.status === 'complete') {
-			const r = bucketFor(i.updatedAt);
-			if (r !== undefined) trend[r].resolved += 1;
-		}
-	}
-
 	const data: DashboardData = {
 		issues,
 		total,
@@ -107,7 +69,7 @@ export const load: PageServerLoad = async () => {
 		resolutionRate,
 		avgOpenAgeDays,
 		topTags,
-		trend
+		trend: buildTrend(issues, new Date(now))
 	};
 	return data;
 };

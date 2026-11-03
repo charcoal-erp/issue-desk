@@ -10,6 +10,7 @@
 	import FilterChips from '$lib/components/FilterChips.svelte';
 	import IssueTable from '$lib/components/IssueTable.svelte';
 	import ColumnPicker from '$lib/components/ColumnPicker.svelte';
+	import SelectMenu from '$lib/components/SelectMenu.svelte';
 	import Icon from '$lib/components/Icon.svelte';
 
 	let { data } = $props();
@@ -19,6 +20,21 @@
 
 	$effect(() => {
 		quick = page.url.searchParams.get('q') ?? '';
+	});
+
+	// Only people who have actually reported something — the user list also holds
+	// accounts with nothing filed, which would be dead ends here. The active value
+	// stays listed even when it matches nothing, so a shared link still reads right.
+	const reporterOptions = $derived.by(() => {
+		const ids = new Set(Object.keys(data.counts.byReporter));
+		if (data.filter.reporterId) ids.add(data.filter.reporterId);
+		const people = [...ids]
+			.map((id) => ({
+				value: id,
+				label: `${data.users.find((u) => u.id === id)?.name ?? id} (${data.counts.byReporter[id] ?? 0})`
+			}))
+			.sort((a, b) => a.label.localeCompare(b.label));
+		return [{ value: '', label: 'Anyone' }, ...people];
 	});
 
 	function navigate(patch: Partial<IssueFilter>, replace = false) {
@@ -73,6 +89,17 @@
 			<h1>Issues</h1>
 			<span class="count">{data.total} {data.total === 1 ? 'issue' : 'issues'}</span>
 			<div class="toolbar-spacer"></div>
+			<div class="tb-reporter">
+				<label for="reporter-filter">Reported by</label>
+				<SelectMenu
+					id="reporter-filter"
+					options={reporterOptions}
+					bind:value={
+						() => data.filter.reporterId ?? '',
+						(id) => navigate({ reporterId: id || undefined })
+					}
+				/>
+			</div>
 			<div class="tb-search">
 				<Icon name="search" />
 				<input placeholder="Quick filter…" bind:value={quick} oninput={onQuickInput} />
@@ -91,6 +118,7 @@
 			filter={data.filter}
 			applications={data.applications}
 			categories={data.categories}
+			users={data.users}
 			onChange={(patch) => navigate(patch)}
 			onClearAll={clearAll}
 		/>
@@ -106,3 +134,37 @@
 		/>
 	</div>
 </section>
+
+<style>
+	/* On a narrower window the controls drop to a second line rather than crush
+	   the quick filter to nothing. */
+	.toolbar {
+		flex-wrap: wrap;
+	}
+	.toolbar .count {
+		white-space: nowrap;
+	}
+	.tb-search {
+		flex: none;
+	}
+	.tb-reporter {
+		flex: none;
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		width: 270px;
+	}
+	.tb-reporter label {
+		flex: none;
+		font-size: 12.5px;
+		font-weight: 500;
+		color: var(--muted);
+	}
+	/* Same 36px and radius as the quick filter beside it. */
+	.tb-reporter :global(.sel) {
+		height: 36px;
+		padding-block: 0;
+		border-radius: 8px;
+		font-size: 13px;
+	}
+</style>

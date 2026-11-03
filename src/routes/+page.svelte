@@ -24,7 +24,7 @@
 	 */
 	const tagTint = (count: number) => 6 + Math.round(Math.sqrt(count / maxTag) * 14);
 	const maxTrend = $derived(
-		Math.max(...data.trend.map((t) => Math.max(t.created, t.resolved)), 1)
+		Math.max(...data.trend.map((t) => Math.max(t.created, t.verify, t.resolved)), 1)
 	);
 
 	// The trend line is laid out in real pixels off the measured panel width
@@ -54,6 +54,7 @@
 			}));
 		return {
 			created: series((t) => t.created),
+			verify: series((t) => t.verify),
 			resolved: series((t) => t.resolved),
 			grid: [1, 0.5, 0].map((f) => at(maxTrend * f)),
 			topY: at(maxTrend),
@@ -64,14 +65,18 @@
 	const polyline = (pts: { x: number; y: number }[]) => pts.map((p) => `${p.x},${p.y}`).join(' ');
 
 	/**
-	 * Label every week when the column is wide enough for a date, otherwise every
-	 * second one — counted back from the newest week, so the label people look at
-	 * first is always the one that survives. Thinning beats letting "Aug 10" wrap
-	 * onto two lines while "Jul 6" stays on one, which is what makes an axis look
-	 * ragged; every point still carries its own figures on hover.
+	 * Label as many weeks as there is room for a date — every one when the columns
+	 * are wide, every nth as the timeline grows. Counted from the oldest week, so
+	 * July always keeps its label and a new week never reshuffles the ones already
+	 * there. Thinning beats letting "Aug 10" wrap onto two lines while "Jul 6" stays
+	 * on one, which is what makes an axis look ragged; every point still carries
+	 * its own figures on hover.
 	 */
+	const LABEL_W = 42;
 	const labelStride = $derived(
-		plotW > 0 && (plotW - PLOT_LEFT) / Math.max(data.trend.length, 1) < 42 ? 2 : 1
+		plotW > PLOT_LEFT
+			? Math.max(1, Math.ceil(LABEL_W / ((plotW - PLOT_LEFT) / Math.max(data.trend.length, 1))))
+			: 1
 	);
 
 	function userName(id: string): string {
@@ -150,7 +155,7 @@
 			</div>
 
 			<div class="panel">
-				<div class="panel-head"><h3>Created vs. resolved — last 8 weeks</h3></div>
+				<div class="panel-head"><h3>Created, to be verified &amp; resolved — since July 2026</h3></div>
 				<div class="panel-body">
 					{#if total === 0}
 						<div class="empty"><Icon name="dashboard" /><span>No activity yet</span></div>
@@ -161,7 +166,7 @@
 								width={plotW}
 								height={PLOT_H}
 								role="img"
-								aria-label="Issues created versus resolved over the last {data.trend.length} weeks"
+								aria-label="Issues created, moved to be verified and resolved per week since July 2026"
 							>
 								{#if trendLine}
 									{#each trendLine.grid as y, i (i)}
@@ -170,13 +175,19 @@
 									<text class="axis-n" x={PLOT_LEFT - 7} y={trendLine.topY}>{maxTrend}</text>
 									<text class="axis-n" x={PLOT_LEFT - 7} y={trendLine.zeroY}>0</text>
 									<polyline class="ln ln-resolved" points={polyline(trendLine.resolved)} />
+									<polyline class="ln ln-verify" points={polyline(trendLine.verify)} />
 									<polyline class="ln ln-created" points={polyline(trendLine.created)} />
-									{#each trendLine.resolved as p (p.label)}
+									{#each trendLine.resolved as p, i (i)}
 										<circle class="dot dot-resolved" cx={p.x} cy={p.y} r="3.2">
 											<title>{p.label}: {p.v} resolved</title>
 										</circle>
 									{/each}
-									{#each trendLine.created as p (p.label)}
+									{#each trendLine.verify as p, i (i)}
+										<circle class="dot dot-verify" cx={p.x} cy={p.y} r="3.2">
+											<title>{p.label}: {p.v} to be verified</title>
+										</circle>
+									{/each}
+									{#each trendLine.created as p, i (i)}
 										<circle class="dot dot-created" cx={p.x} cy={p.y} r="3.2">
 											<title>{p.label}: {p.v} created</title>
 										</circle>
@@ -184,15 +195,16 @@
 								{/if}
 							</svg>
 							<div class="trend-axis" style="padding-left:{PLOT_LEFT}px">
-								{#each data.trend as b, i (b.label)}
-									<span class="trend-label" title="{b.label}: {b.created} created, {b.resolved} resolved">
-										{(data.trend.length - 1 - i) % labelStride === 0 ? b.label : ''}
+								{#each data.trend as b, i (i)}
+									<span class="trend-label" title="{b.label}: {b.created} created, {b.verify} to be verified, {b.resolved} resolved">
+										{i % labelStride === 0 ? b.label : ''}
 									</span>
 								{/each}
 							</div>
 						</div>
 						<div class="legend">
 							<span><i style="background:var(--accent)"></i>Created</span>
+							<span><i style="background:var(--verify)"></i>To be verified</span>
 							<span><i style="background:var(--done)"></i>Resolved</span>
 						</div>
 					{/if}
@@ -294,16 +306,22 @@
 	.trend-plot .ln-created {
 		stroke: var(--accent);
 	}
+	.trend-plot .ln-verify {
+		stroke: var(--verify);
+	}
 	.trend-plot .ln-resolved {
 		stroke: var(--done);
 	}
-	/* A ring in the card colour keeps a point readable where the two lines cross. */
+	/* A ring in the card colour keeps a point readable where the lines cross. */
 	.trend-plot .dot {
 		stroke: var(--surface);
 		stroke-width: 1.5;
 	}
 	.trend-plot .dot-created {
 		fill: var(--accent);
+	}
+	.trend-plot .dot-verify {
+		fill: var(--verify);
 	}
 	.trend-plot .dot-resolved {
 		fill: var(--done);
@@ -317,9 +335,12 @@
 		min-width: 0;
 		font-size: 10.5px;
 		color: var(--faint);
-		text-align: center;
-		/* Never wraps — `labelStride` drops every other date instead when the
-		   columns get too narrow for one. */
+		/* A date is wider than its column once the timeline is long; flex centring
+		   lets it spill evenly both ways, staying under its point. */
+		display: flex;
+		justify-content: center;
+		/* Never wraps — `labelStride` drops dates instead when the columns get too
+		   narrow for one. */
 		white-space: nowrap;
 		line-height: 1.25;
 	}

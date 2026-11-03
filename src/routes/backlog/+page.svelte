@@ -98,6 +98,7 @@
 			filter={chipFilter}
 			applications={data.applications}
 			categories={data.categories}
+			users={data.users}
 			onChange={(patch) => navigate(patch)}
 			onClearAll={clearAll}
 		/>

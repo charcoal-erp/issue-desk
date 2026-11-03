@@ -40,7 +40,7 @@
 </script>
 
 <section class="screen screen-board">
-	<div style="flex:1;display:flex;flex-direction:column;min-width:0">
+	<div style="flex:1;display:flex;flex-direction:column;min-width:0;min-height:0">
 		<div class="board-head">
 			<h1>Board</h1>
 			<span class="count">{data.total} {data.total === 1 ? 'issue' : 'issues'}</span>
