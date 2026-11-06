@@ -225,6 +225,28 @@ export const PROVIDER_META: Record<Provider, ProviderMeta> = {
 	}
 };
 
+/** One existing issue scored against a draft or another issue (0–100). */
+export interface DuplicateMatch {
+	issue: Issue;
+	/** The match percentage shown: the model's judgement, or the keyword score without AI. */
+	score: number;
+	keywordScore: number;
+	/** The model's one-line reason, when it scored this match. */
+	reason?: string;
+	/** AI scored the check but skipped this candidate, so `score` is the keyword score. */
+	keywordOnly?: boolean;
+}
+
+export interface DuplicateCheckResult {
+	matches: DuplicateMatch[];
+	scored: 'ai' | 'keyword';
+	model: string | null;
+	/** How many issues were compared. */
+	scanned: number;
+	/** Why the scores are keyword-only, when AI was wanted but unavailable. */
+	aiError?: string;
+}
+
 /** Client-safe view of a stored credential — never carries key material. */
 export interface CredentialStatusView {
 	provider: Provider;

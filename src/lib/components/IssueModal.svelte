@@ -6,6 +6,7 @@
 		Application,
 		Attachment,
 		Category,
+		DuplicateCheckResult,
 		Issue,
 		IssueType,
 		Priority,
@@ -17,6 +18,7 @@
 	import { PRIORITY_META } from '$lib/priority';
 	import { STATUS_META } from '$lib/status';
 	import { toast } from '$lib/stores/toasts.svelte';
+	import { checkDuplicates } from '$lib/duplicates';
 	import { clearDraft, draftAge, draftKey, loadDraft, saveDraft } from '$lib/stores/drafts';
 	import {
 		closeIssueModal,
@@ -24,6 +26,7 @@
 		requestCloseIssueModal
 	} from '$lib/stores/ui.svelte';
 	import AttachmentDropzone from './AttachmentDropzone.svelte';
+	import DuplicateList from './DuplicateList.svelte';
 	import Icon from './Icon.svelte';
 	import PriorityMeter from './PriorityMeter.svelte';
 	import SelectMenu from './SelectMenu.svelte';
@@ -281,6 +284,42 @@
 	function addAllTags() {
 		for (const t of tagSuggestions ?? []) addTag(t.slug);
 		tagSuggestions = [];
+	}
+
+	// ---------- Duplicate check ----------
+	// Read-only: compares the draft with what is already filed. The result is
+	// pinned to the text it checked, so an edit afterwards flags it as stale
+	// instead of quietly standing for a draft it never saw.
+	let dupBusy = $state(false);
+	let dupResult = $state<DuplicateCheckResult | null>(null);
+	let dupCheckedFor = $state('');
+	let dupPanel = $state<HTMLElement | undefined>();
+	const dupStale = $derived(dupResult !== null && dupCheckedFor !== `${title}\n${description}`);
+
+	async function runDuplicateCheck() {
+		if (!title.trim() && !description.trim()) {
+			toast('Nothing to check', 'Add a title or description first.');
+			return;
+		}
+		dupBusy = true;
+		try {
+			dupResult = await checkDuplicates({
+				title,
+				description,
+				tags: currentTagSet(),
+				appId: appId || undefined,
+				moduleId: moduleId || undefined,
+				excludeId: editing?.id,
+				limit: 5
+			});
+			dupCheckedFor = `${title}\n${description}`;
+			// The button is in the footer; the answer is at the end of the form.
+			requestAnimationFrame(() => dupPanel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+		} catch (e) {
+			toast('Duplicate check failed', String((e as Error).message ?? e));
+		} finally {
+			dupBusy = false;
+		}
 	}
 
 	const app = $derived(applications.find((a) => a.id === appId));
@@ -550,6 +589,24 @@
 							{draftId}
 						/>
 					</div>
+
+					{#if dupResult}
+						<div class="field full" bind:this={dupPanel}>
+							<div class="dup-panel">
+								<div class="dup-head">
+									<b>Possible duplicates</b>
+									{#if dupStale}<span class="dup-stale">Draft changed since this check</span>{/if}
+									<button type="button" class="ai-btn" disabled={dupBusy} onclick={runDuplicateCheck}>
+										<Icon name="refresh" />{dupBusy ? 'Checking…' : 'Check again'}
+									</button>
+									<button type="button" class="dup-x" aria-label="Hide duplicate check" onclick={() => (dupResult = null)}>
+										<Icon name="x" />
+									</button>
+								</div>
+								<DuplicateList result={dupResult} />
+							</div>
+						</div>
+					{/if}
 				</div>
 			</div>
 			<div class="modal-foot">
@@ -557,7 +614,10 @@
 					A per-app ID is assigned on create — e.g.
 					<span style="font-family:var(--font-mono);color:var(--muted)">{nextIdPreview}</span>
 				</div>
-					<button type="button" class="btn btn-ghost" onclick={requestCloseIssueModal}>Cancel</button>
+				<button type="button" class="btn btn-ghost" disabled={dupBusy} onclick={runDuplicateCheck}>
+					<Icon name="search" />{dupBusy ? 'Checking…' : 'Check for duplicates'}
+				</button>
+				<button type="button" class="btn btn-ghost" onclick={requestCloseIssueModal}>Cancel</button>
 				<button type="submit" class="btn btn-primary" disabled={saving}>
 					{editing ? 'Save changes' : 'Create issue'}
 				</button>
@@ -662,6 +722,45 @@
 	.ai-btn :global(svg) {
 		width: 13px;
 		height: 13px;
+	}
+	.dup-panel {
+		border: 1px solid var(--line);
+		background: var(--surface-2);
+		border-radius: 12px;
+		padding: 12px;
+	}
+	.dup-head {
+		display: flex;
+		align-items: center;
+		gap: 10px;
+		margin-bottom: 4px;
+		font-size: 13px;
+	}
+	.dup-head b {
+		margin-right: auto;
+	}
+	.dup-head .ai-btn {
+		float: none;
+	}
+	.dup-stale {
+		font-size: 11.5px;
+		color: var(--warn-ink);
+	}
+	.dup-x {
+		display: grid;
+		place-items: center;
+		width: 24px;
+		height: 24px;
+		border-radius: 6px;
+		color: var(--muted);
+	}
+	.dup-x:hover {
+		background: var(--surface);
+		color: var(--ink);
+	}
+	.dup-x :global(svg) {
+		width: 14px;
+		height: 14px;
 	}
 	.ai-panel {
 		border: 1px solid var(--accent-soft);

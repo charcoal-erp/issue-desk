@@ -3,7 +3,7 @@
 	import { page } from '$app/state';
 	import { marked } from 'marked';
 	import DOMPurify from 'dompurify';
-	import type { Activity, Application, Issue, User } from '$lib/types';
+	import type { Activity, Application, DuplicateCheckResult, Issue, User } from '$lib/types';
 	import { describeActivity } from '$lib/activity';
 	import { STATUS_ORDER, STATUS_META } from '$lib/status';
 	import { SOURCE_META } from '$lib/source';
@@ -11,9 +11,11 @@
 	import { fmtDate, fmtDateTime, fmtWhen } from '$lib/format';
 	import { postAction } from '$lib/actions';
 	import { singleIssueMarkdown } from '$lib/export/copyIssue';
+	import { checkDuplicates } from '$lib/duplicates';
 	import { toast } from '$lib/stores/toasts.svelte';
 	import { closeDrawer, openEditIssue, openLightbox, ui } from '$lib/stores/ui.svelte';
 	import Avatar from './Avatar.svelte';
+	import DuplicateList from './DuplicateList.svelte';
 	import Icon from './Icon.svelte';
 	import PriorityMeter from './PriorityMeter.svelte';
 	import StatusBadge from './StatusBadge.svelte';
@@ -114,6 +116,37 @@
 		}
 	}
 
+	// ---------- Similar issues ----------
+	// Belongs to the issue it was run for; stepping to another issue (including
+	// by clicking one of these matches) starts clean.
+	let similar = $state<DuplicateCheckResult | null>(null);
+	let similarBusy = $state(false);
+	let similarFor = '';
+	$effect(() => {
+		if (issue.id !== similarFor) similar = null;
+	});
+
+	async function findSimilar() {
+		similarBusy = true;
+		try {
+			const result = await checkDuplicates({
+				title: issue.title,
+				description: issue.description,
+				tags: issue.tags,
+				appId: issue.appId,
+				moduleId: issue.moduleId,
+				excludeId: issue.id,
+				limit: 3
+			});
+			similarFor = issue.id;
+			similar = result;
+		} catch (e) {
+			toast('Could not find similar issues', String((e as Error).message ?? e));
+		} finally {
+			similarBusy = false;
+		}
+	}
+
 	function esc(s: string): string {
 		return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 	}
@@ -167,10 +200,22 @@
 						<button class="btn btn-ghost btn-sm" onclick={advanceStatus}>
 							<Icon name="refresh" />Advance status
 						</button>
+						<button class="btn btn-ghost btn-sm" disabled={similarBusy} onclick={findSimilar}>
+							<Icon name="search" />{similarBusy ? 'Checking…' : 'Find similar'}
+						</button>
 						<button class="btn btn-primary btn-sm" onclick={copyIssue}>
 							<Icon name="copy" />Copy for Claude Code
 						</button>
 					</div>
+					{#if similar}
+						<div class="similar">
+							<div class="dr-sec-t">
+								Similar issues
+								<button class="similar-x" aria-label="Hide similar issues" onclick={() => (similar = null)}><Icon name="x" /></button>
+							</div>
+							<DuplicateList result={similar} onOpen={(i) => (ui.drawerIssue = i)} />
+						</div>
+					{/if}
 					<div class="dr-meta">
 						<div class="row">
 							<span class="rk">Application</span>
@@ -330,6 +375,30 @@
 </div>
 
 <style>
+	.similar {
+		margin-bottom: 20px;
+	}
+	.similar .dr-sec-t {
+		display: flex;
+		align-items: center;
+	}
+	.similar-x {
+		margin-left: auto;
+		display: grid;
+		place-items: center;
+		width: 22px;
+		height: 22px;
+		border-radius: 6px;
+		color: var(--muted);
+	}
+	.similar-x:hover {
+		background: var(--surface-2);
+		color: var(--ink);
+	}
+	.similar-x :global(svg) {
+		width: 13px;
+		height: 13px;
+	}
 	.cm-list {
 		margin-bottom: 14px;
 	}

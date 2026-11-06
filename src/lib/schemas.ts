@@ -238,5 +238,27 @@ export const extractTagsRequestSchema = z.object({
 	description: z.string().default('')
 });
 
+export const duplicateCheckRequestSchema = z.object({
+	title: z.string().max(500).default(''),
+	description: z.string().max(100_000).default(''),
+	tags: z.array(z.string().max(60)).max(30).default([]),
+	appId: z.string().optional(),
+	moduleId: z.string().optional(),
+	/** The issue being viewed, so it is not reported as its own duplicate. */
+	excludeId: z.string().optional(),
+	limit: z.number().int().min(1).max(10).default(5)
+});
+
+/** The model's duplicate scores — one per candidate it was shown. */
+export const duplicateScoresSchema = z
+	.array(
+		z.object({
+			id: z.string().min(1),
+			score: z.number().min(0).max(100),
+			reason: z.string().max(400).optional()
+		})
+	)
+	.max(50);
+
 /** The model returns a JSON array of tag slugs; bound its size, fail closed. */
 export const extractedTagsSchema = z.array(z.string().min(1).max(40)).min(1).max(12);
