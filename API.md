@@ -103,7 +103,7 @@ Fetch it once at the start of a session instead of guessing slugs — ids like `
 ```json
 {
   "applications": [{ "id": "charcoal", "code": "CHR", "name": "Charcoal",
-                     "modules": [{ "id": "org-hub", "code": "ORGH", "name": "Organization Hub" }] }],
+                     "modules": [{ "id": "org-hub", "code": "ORGH", "name": "Owner Hub" }] }],
   "categories":   [{ "id": "security", "name": "Security", "description": "…", "color": "#…" }],
   "tags":         ["auth", "regression"],
   "types":        ["bug", "feature"],

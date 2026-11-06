@@ -41,7 +41,7 @@ export const SEED_CATEGORIES: Category[] = [
 
 // pages: [] everywhere — page/form are captured as free text on each issue.
 const CHARCOAL_MODULES = [
-	['org-hub', 'ORGH', 'Organization Hub'],
+	['org-hub', 'ORGH', 'Owner Hub'],
 	['company-hub', 'COH', 'Company Hub'],
 	['my-desk', 'DESK', 'My Desk'],
 	['platform-console', 'PLAT', 'Platform Console'],
