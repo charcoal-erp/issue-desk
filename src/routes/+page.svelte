@@ -15,6 +15,9 @@
 	const maxPriority = $derived(Math.max(...PRIORITIES.map((p) => data.byPriority[p]), 1));
 	const maxStatus = $derived(Math.max(...STATUS_ORDER.map((s) => data.byStatus[s]), 1));
 	const maxTag = $derived(Math.max(...data.topTags.map((t) => t.count), 1));
+	const maxCategory = $derived(
+		Math.max(...data.categories.map((c) => data.byCategory[c.id] ?? 0), 1)
+	);
 	/**
 	 * A tag used ten times should read heavier than one used twice, so the chip's
 	 * tint tracks its count. Square-rooted rather than linear: one runaway tag is
@@ -31,7 +34,7 @@
 	// rather than a scaled viewBox, so strokes and dots stay the same size
 	// whatever width the card ends up at. Width is 0 until the binding lands,
 	// which is also what the server renders — so hydration has nothing to fix.
-	const PLOT_H = 112;
+	const PLOT_H = 170;
 	const PLOT_TOP = 12;
 	const PLOT_BOTTOM = 8;
 	const PLOT_LEFT = 22; // gutter for the 0 and max labels
@@ -155,6 +158,56 @@
 			</div>
 
 			<div class="panel">
+				<div class="panel-head"><h3>By category</h3></div>
+				<div class="panel-body">
+					{#if total === 0}
+						<div class="empty"><Icon name="layers" /><span>No issues yet</span></div>
+					{:else}
+						{#each data.categories as c (c.id)}
+							{@const n = data.byCategory[c.id] ?? 0}
+							<a class="bar-row" href="/issues?categoryId={encodeURIComponent(c.id)}" title={c.description}>
+								<div class="bl"><span class="status-dot" style="background:{c.color ?? 'var(--faint)'}"></span>{c.name}</div>
+								<div class="track">
+									<div class="fill" style="width:{Math.max((n / maxCategory) * 100, n ? 4 : 0)}%;background:{c.color ?? 'var(--faint)'}"></div>
+								</div>
+								<div class="bn">{n}</div>
+							</a>
+						{/each}
+						{#if data.uncategorised}
+							<!-- A note rather than a bar: most issues carry no category, and as a
+							     bar it would set the scale and flatten every real one. -->
+							<p class="uncat">{data.uncategorised} {data.uncategorised === 1 ? 'issue has' : 'issues have'} no category</p>
+						{/if}
+					{/if}
+				</div>
+			</div>
+
+			<div class="panel">
+				<div class="panel-head"><h3>Top tags</h3></div>
+				<div class="panel-body">
+					{#if data.topTags.length === 0}
+						<div class="empty"><Icon name="tag" /><span>No tags yet</span></div>
+					{:else}
+						<div class="tagcloud">
+							{#each data.topTags as t (t.tag)}
+								<a
+									class="tagchip"
+									href="/issues?tag={encodeURIComponent(t.tag)}"
+									style="--tint:{tagTint(t.count)}%"
+								>
+									{t.tag}<span class="tagn" style="width:{Math.max((t.count / maxTag) * 44, 8)}px"></span><b>{t.count}</b>
+								</a>
+							{/each}
+						</div>
+					{/if}
+				</div>
+			</div>
+		</div>
+
+		<!-- The timeline keeps growing, so it gets half a row of its own rather than
+		     a card's width. -->
+		<div class="panel-grid panel-row">
+			<div class="panel half">
 				<div class="panel-head"><h3>Created, to be verified &amp; resolved — since July 2026</h3></div>
 				<div class="panel-body">
 					{#if total === 0}
@@ -211,28 +264,7 @@
 				</div>
 			</div>
 
-			<div class="panel">
-				<div class="panel-head"><h3>Top tags</h3></div>
-				<div class="panel-body">
-					{#if data.topTags.length === 0}
-						<div class="empty"><Icon name="tag" /><span>No tags yet</span></div>
-					{:else}
-						<div class="tagcloud">
-							{#each data.topTags as t (t.tag)}
-								<a
-									class="tagchip"
-									href="/issues?tag={encodeURIComponent(t.tag)}"
-									style="--tint:{tagTint(t.count)}%"
-								>
-									{t.tag}<span class="tagn" style="width:{Math.max((t.count / maxTag) * 44, 8)}px"></span><b>{t.count}</b>
-								</a>
-							{/each}
-						</div>
-					{/if}
-				</div>
-			</div>
-
-			<div class="panel">
+			<div class="panel half">
 				<div class="panel-head"><h3>Recent activity</h3></div>
 				<div class="panel-body">
 					{#if recent.length === 0}
@@ -361,6 +393,20 @@
 		height: 10px;
 		border-radius: 3px;
 		display: inline-block;
+	}
+	a.bar-row {
+		color: inherit;
+		text-decoration: none;
+		border-radius: 6px;
+	}
+	a.bar-row:hover .bl {
+		color: var(--ink);
+		text-decoration: underline;
+	}
+	.uncat {
+		margin: 8px 0 0;
+		font-size: 12px;
+		color: var(--faint);
 	}
 	.tagcloud {
 		display: flex;

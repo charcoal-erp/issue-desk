@@ -7,6 +7,7 @@
 	import { toast } from '$lib/stores/toasts.svelte';
 	import { openDrawer, openEditIssue, openExport, openNewIssue } from '$lib/stores/ui.svelte';
 	import FilterRail from '$lib/components/FilterRail.svelte';
+	import ReporterCard from '$lib/components/ReporterCard.svelte';
 	import FilterChips from '$lib/components/FilterChips.svelte';
 	import IssueTable from '$lib/components/IssueTable.svelte';
 	import ColumnPicker from '$lib/components/ColumnPicker.svelte';
@@ -78,11 +79,20 @@
 <section class="screen">
 	<FilterRail
 		applications={data.applications}
-		categories={data.categories}
 		counts={data.counts}
 		filter={data.filter}
 		onChange={(patch) => navigate(patch)}
-	/>
+	>
+		{#if data.filter.reporterId && data.reporterStats}
+			<ReporterCard
+				reporterId={data.filter.reporterId}
+				user={data.users.find((u) => u.id === data.filter.reporterId)}
+				byStatus={data.reporterStats}
+				filter={data.filter}
+				onChange={(patch) => navigate(patch)}
+			/>
+		{/if}
+	</FilterRail>
 
 	<div class="table-area">
 		<div class="toolbar">
@@ -131,6 +141,7 @@
 			onOpen={(issue) => openDrawer(issue)}
 			onEdit={(issue) => openEditIssue(issue)}
 			onCopy={copyIssue}
+			onReporter={(reporterId) => navigate({ reporterId })}
 		/>
 	</div>
 </section>

@@ -12,7 +12,8 @@
 		onSort,
 		onOpen,
 		onEdit,
-		onCopy
+		onCopy,
+		onReporter
 	}: {
 		rows: Issue[];
 		users: User[];
@@ -22,6 +23,7 @@
 		onOpen: (issue: Issue) => void;
 		onEdit: (issue: Issue) => void;
 		onCopy: (issue: Issue) => void;
+		onReporter?: (reporterId: string) => void;
 	} = $props();
 
 	const appColor = $derived(
@@ -61,7 +63,7 @@
 			</thead>
 			<tbody>
 				{#each rows as issue (issue.id)}
-					<IssueRow {issue} {users} appColor={appColor.get(issue.appId)} {onOpen} {onEdit} {onCopy} />
+					<IssueRow {issue} {users} appColor={appColor.get(issue.appId)} {onOpen} {onEdit} {onCopy} {onReporter} />
 				{/each}
 			</tbody>
 		</table>

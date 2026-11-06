@@ -1,7 +1,7 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import type {
 		Application,
-		Category,
 		IssueFilter,
 		IssueType,
 		Priority,
@@ -19,19 +19,20 @@
 
 	let {
 		applications,
-		categories,
 		counts,
 		filter,
 		hideStatus = false,
-		onChange
+		onChange,
+		children
 	}: {
 		applications: Application[];
-		categories: Category[];
 		counts: FilterCounts;
 		filter: IssueFilter;
 		/** For a view that already *is* one status — the backlog page. */
 		hideStatus?: boolean;
 		onChange: (patch: Partial<IssueFilter>) => void;
+		/** A card pinned above the filters, e.g. the reporter summary. */
+		children?: Snippet;
 	} = $props();
 
 	// Only apps that actually have issues appear in the rail (mockup behaviour).
@@ -85,6 +86,7 @@
 </script>
 
 <aside class="filters">
+	{@render children?.()}
 	<div class="f-block">
 		<div class="f-title">
 			Applications <button class="clear" onclick={() => onChange({ appId: undefined, moduleId: undefined })}>Reset</button>
@@ -236,57 +238,6 @@
 			</label>
 		</div>
 	</div>
-
-	{#if counts.topTags.length}
-		<div class="f-block">
-			<div class="f-title">
-				Tags <button class="clear" onclick={() => onChange({ tag: undefined })}>Reset</button>
-			</div>
-			<div class="tag-cloud">
-				{#each counts.topTags as t (t.tag)}
-					<button
-						class="tag-pill"
-						class:on={filter.tag === t.tag}
-						onclick={() => onChange({ tag: filter.tag === t.tag ? undefined : t.tag })}
-					>
-						{t.tag}<span class="tc">{t.count}</span>
-					</button>
-				{/each}
-			</div>
-		</div>
-	{/if}
-
-	{#if categories.length}
-		<div class="f-block">
-			<div class="f-title">
-				Category
-				<button class="clear" onclick={() => onChange({ categoryId: undefined })}>Reset</button>
-			</div>
-			<div>
-				<button
-					class="app-item"
-					class:active={!filter.categoryId}
-					onclick={() => onChange({ categoryId: undefined })}
-				>
-					<span class="app-dot" style="background:var(--muted)"></span>
-					<span class="an">All categories</span>
-					<span class="ac">{counts.total}</span>
-				</button>
-				{#each categories as c (c.id)}
-					<button
-						class="app-item"
-						class:active={filter.categoryId === c.id}
-						onclick={() => onChange({ categoryId: c.id })}
-						title={c.description}
-					>
-						<span class="app-dot" style="background:{c.color ?? 'var(--faint)'}"></span>
-						<span class="an">{c.name}</span>
-						<span class="ac">{counts.byCategory[c.id] ?? 0}</span>
-					</button>
-				{/each}
-			</div>
-		</div>
-	{/if}
 </aside>
 
 <style>
@@ -320,14 +271,6 @@
 		background: var(--accent);
 		border-color: var(--accent);
 		color: #fff;
-	}
-	.tag-pill .tc {
-		font-family: var(--font-mono);
-		font-size: 10.5px;
-		color: var(--faint);
-	}
-	.tag-pill.on .tc {
-		color: rgba(255, 255, 255, 0.8);
 	}
 	.date-range {
 		display: grid;

@@ -3,7 +3,7 @@ import type { Actions, PageServerLoad } from './$types';
 import { tallyCounts } from '$lib/counts';
 import { parseFilter } from '$lib/filter';
 import { createIssueSchema, updateIssueSchema } from '$lib/schemas';
-import type { Priority, Status } from '$lib/types';
+import type { IssueFilter, Priority, Status } from '$lib/types';
 import { PRIORITIES, STATUSES } from '$lib/types';
 import * as store from '$lib/server/store';
 
@@ -12,7 +12,21 @@ export const load: PageServerLoad = async ({ url }) => {
 	const filter = parseFilter(url.searchParams);
 	const { rows, total } = store.list(filter);
 	// Rail counts are over the whole dataset, matching the mockup.
-	return { rows, total, filter, counts: tallyCounts(store.list({}).rows) };
+	return {
+		rows,
+		total,
+		filter,
+		counts: tallyCounts(store.list({}).rows),
+		reporterStats: reporterStats(filter)
+	};
+};
+
+/** Everything the filtered-to reporter has filed, by status, for the rail card. */
+function reporterStats(filter: IssueFilter): Record<Status, number> | null {
+	if (!filter.reporterId) return null;
+	const byStatus = Object.fromEntries(STATUSES.map((s) => [s, 0])) as Record<Status, number>;
+	for (const issue of store.list({ reporterId: filter.reporterId }).rows) byStatus[issue.status] += 1;
+	return byStatus;
 };
 
 /** Who the change is recorded against — the signed-in account, always. */

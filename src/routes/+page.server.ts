@@ -16,6 +16,8 @@ export interface DashboardData {
 	resolutionRate: number | null; // complete / total, null when no issues
 	avgOpenAgeDays: number | null; // null when nothing is open
 	topTags: Array<{ tag: string; count: number }>;
+	byCategory: Record<string, number>;
+	uncategorised: number;
 	trend: TrendBucket[];
 }
 
@@ -29,6 +31,8 @@ export const load: PageServerLoad = async () => {
 	const byStatus = Object.fromEntries(STATUSES.map((s) => [s, 0])) as Record<Status, number>;
 	const byPriority = Object.fromEntries(PRIORITIES.map((p) => [p, 0])) as Record<Priority, number>;
 	const tagCounts = new Map<string, number>();
+	const byCategory: Record<string, number> = {};
+	let uncategorised = 0;
 	let bugs = 0;
 	let features = 0;
 	let criticalOpen = 0;
@@ -46,6 +50,8 @@ export const load: PageServerLoad = async () => {
 			if (i.priority === 'critical') criticalOpen += 1;
 		}
 		for (const t of i.tags) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+		if (i.categoryId) byCategory[i.categoryId] = (byCategory[i.categoryId] ?? 0) + 1;
+		else uncategorised += 1;
 	}
 
 	const total = issues.length;
@@ -55,7 +61,7 @@ export const load: PageServerLoad = async () => {
 	const topTags = [...tagCounts.entries()]
 		.map(([tag, count]) => ({ tag, count }))
 		.sort((a, b) => b.count - a.count)
-		.slice(0, 8);
+		.slice(0, 12);
 
 	const data: DashboardData = {
 		issues,
@@ -69,6 +75,8 @@ export const load: PageServerLoad = async () => {
 		resolutionRate,
 		avgOpenAgeDays,
 		topTags,
+		byCategory,
+		uncategorised,
 		trend: buildTrend(issues, new Date(now))
 	};
 	return data;

@@ -16,7 +16,8 @@
 		appColor,
 		onOpen,
 		onEdit,
-		onCopy
+		onCopy,
+		onReporter
 	}: {
 		issue: Issue;
 		users: User[];
@@ -24,6 +25,8 @@
 		onOpen: (issue: Issue) => void;
 		onEdit: (issue: Issue) => void;
 		onCopy: (issue: Issue) => void;
+		/** When set, the reporter's name filters the list to them instead of opening the issue. */
+		onReporter?: (reporterId: string) => void;
 	} = $props();
 
 	const assignee = $derived(users.find((u) => u.id === issue.assigneeId));
@@ -72,10 +75,24 @@
 	{/if}
 	{#if visible.reporter}
 		<td>
-			<div class="assignee-cell" title={reporter ? reporter.name : issue.reporterId}>
-				<Avatar user={reporter} />
-				<span class="nm">{reporter ? reporter.name.split(' ')[0] : issue.reporterId}</span>
-			</div>
+			{#if onReporter}
+				<button
+					class="assignee-cell reporter-link"
+					title="Show everything {reporter ? reporter.name : issue.reporterId} reported"
+					onclick={(e) => {
+						e.stopPropagation();
+						onReporter(issue.reporterId);
+					}}
+				>
+					<Avatar user={reporter} />
+					<span class="nm">{reporter ? reporter.name.split(' ')[0] : issue.reporterId}</span>
+				</button>
+			{:else}
+				<div class="assignee-cell" title={reporter ? reporter.name : issue.reporterId}>
+					<Avatar user={reporter} />
+					<span class="nm">{reporter ? reporter.name.split(' ')[0] : issue.reporterId}</span>
+				</div>
+			{/if}
 		</td>
 	{/if}
 	{#if visible.files}

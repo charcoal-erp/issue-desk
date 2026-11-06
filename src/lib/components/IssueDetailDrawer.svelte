@@ -80,7 +80,7 @@
 			postComment();
 			return;
 		}
-		// Escape leaves the composer rather than closing the drawer out from
+		// Escape leaves the composer rather than closing the view out from
 		// under a half-written comment; a second press closes as usual.
 		if (e.key === 'Escape' && draft.trim()) {
 			e.stopPropagation();
@@ -126,13 +126,13 @@
 </script>
 
 <div
-	class="drawer-backdrop"
+	class="backdrop"
 	role="presentation"
 	onclick={(e) => {
 		if (e.target === e.currentTarget) closeDrawer();
 	}}
 >
-	<div class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+	<div class="modal issue-view" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
 		<div class="dr-head">
 			<div class="dr-top">
 				<span class="dr-id">{issue.id}</span>
@@ -142,175 +142,184 @@
 			</div>
 			<h2 id="drawer-title">{issue.title}</h2>
 		</div>
+		<!-- Two columns on a wide screen, each scrolling on its own: the write-up on
+		     the left, the facts and history alongside it. Narrow, they stack. -->
 		<div class="dr-body">
-			{#if issue.testCaseId}
-				{#if page.data.checkpointUrl}
-					<a class="test-origin" href="{page.data.checkpointUrl}/cases?case={issue.testCaseId}">
-						<Icon name="task" />
-						<span>Filed from test <b>{issue.testCaseId}</b>{issue.runId ? ` · run ${issue.runId}` : ''} — open in Checkpoint</span>
-					</a>
-				{:else}
-					<span class="test-origin static">
-						<Icon name="task" />
-						<span>Filed from test <b>{issue.testCaseId}</b>{issue.runId ? ` · run ${issue.runId}` : ''}</span>
-					</span>
-				{/if}
-			{/if}
-			<div class="dr-quick">
-				<button class="btn btn-ghost btn-sm" onclick={() => openEditIssue(issue)}>
-					<Icon name="edit" />Edit
-				</button>
-				<button class="btn btn-ghost btn-sm" onclick={advanceStatus}>
-					<Icon name="refresh" />Advance status
-				</button>
-				<button class="btn btn-primary btn-sm" onclick={copyIssue}>
-					<Icon name="copy" />Copy for Claude Code
-				</button>
-			</div>
-			<div class="dr-meta">
-				<div class="row">
-					<span class="rk">Application</span>
-					<span class="rv"><span class="app-dot" style="background:{appColor}"></span>{issue.appName}</span>
-				</div>
-				<div class="row"><span class="rk">Module</span><span class="rv">{issue.moduleName ?? '—'}</span></div>
-				<div class="row">
-					<span class="rk">Source</span>
-					<span class="rv" title={SOURCE_META[issue.source].description}>
-						<span class="app-dot" style="background:{SOURCE_META[issue.source].color}"></span
-						>{SOURCE_META[issue.source].label}
-					</span>
-				</div>
-				<div class="row">
-					<span class="rk">Page / Form</span>
-					<span class="rv">
-						<span style="font-family:var(--font-mono);font-size:12px">{issue.pagePath || '—'}</span
-						>{issue.formName ? ' · ' + issue.formName : ''}
-					</span>
-				</div>
-				<div class="row">
-					<span class="rk">Priority</span>
-					<span class="rv"><PriorityMeter priority={issue.priority} /> {PRIORITY_META[issue.priority].label}</span>
-				</div>
-				<div class="row">
-					<span class="rk">Reporter</span>
-					<span class="rv"><Avatar user={reporter} /> {reporter?.name ?? issue.reporterId}</span>
-				</div>
-				<div class="row">
-					<span class="rk">Assignee</span>
-					<span class="rv">
-						{#if assignee}
-							<Avatar user={assignee} /> {assignee.name}
-						{:else}
-							<span style="color:var(--faint)">Unassigned</span>
-						{/if}
-					</span>
-				</div>
-				<div class="row">
-					<span class="rk">Reported</span>
-					<span class="rv" title={fmtDateTime(issue.createdAt)}>
-						{fmtWhen(issue.createdAt)}
-						<span style="color:var(--faint);font-size:12px">· {fmtDateTime(issue.createdAt)}</span>
-					</span>
-				</div>
-				<div class="row">
-					<span class="rk">Last modified</span>
-					<span class="rv" title={fmtDateTime(issue.updatedAt)}>
-						{fmtWhen(issue.updatedAt)}
-						<span style="color:var(--faint);font-size:12px">· {fmtDateTime(issue.updatedAt)}</span>
-					</span>
-				</div>
-				<div class="row">
-					<span class="rk">Tags</span>
-					<span class="rv">
-						{#each issue.tags as tag (tag)}
-							<span class="mod-tag">{tag}</span>
-						{:else}
-							—
-						{/each}
-					</span>
-				</div>
-			</div>
-			<div class="dr-sec-t">Description</div>
-			<!-- eslint-disable-next-line svelte/no-at-html-tags — sanitised via DOMPurify -->
-			<div class="dr-desc">{@html descHtml}</div>
-			{#if issue.attachments.length}
-				<div class="dr-sec-t">Attachments · public URLs</div>
-				<div class="gallery">
-					{#each issue.attachments as att (att.id)}
-						{#if att.kind === 'image'}
-							<button
-								type="button"
-								class="gal-item"
-								onclick={() => openLightbox(issue.attachments, att)}
-							>
-								<div class="gal-thumb img">
-									<img src={att.url} alt={att.filename} loading="lazy" />
-								</div>
-								<div class="gal-name">{att.filename}</div>
-							</button>
-						{:else}
-							<a class="gal-item" href={att.url} target="_blank" rel="noopener">
-								<div class="gal-thumb pdf"><Icon name="file-lt" /></div>
-								<div class="gal-name">{att.filename}</div>
+			<div class="dr-aside">
+				<div class="dr-side">
+					{#if issue.testCaseId}
+						{#if page.data.checkpointUrl}
+							<a class="test-origin" href="{page.data.checkpointUrl}/cases?case={issue.testCaseId}">
+								<Icon name="task" />
+								<span>Filed from test <b>{issue.testCaseId}</b>{issue.runId ? ` · run ${issue.runId}` : ''} — open in Checkpoint</span>
 							</a>
+						{:else}
+							<span class="test-origin static">
+								<Icon name="task" />
+								<span>Filed from test <b>{issue.testCaseId}</b>{issue.runId ? ` · run ${issue.runId}` : ''}</span>
+							</span>
 						{/if}
+					{/if}
+					<div class="dr-quick">
+						<button class="btn btn-ghost btn-sm" onclick={() => openEditIssue(issue)}>
+							<Icon name="edit" />Edit
+						</button>
+						<button class="btn btn-ghost btn-sm" onclick={advanceStatus}>
+							<Icon name="refresh" />Advance status
+						</button>
+						<button class="btn btn-primary btn-sm" onclick={copyIssue}>
+							<Icon name="copy" />Copy for Claude Code
+						</button>
+					</div>
+					<div class="dr-meta">
+						<div class="row">
+							<span class="rk">Application</span>
+							<span class="rv"><span class="app-dot" style="background:{appColor}"></span>{issue.appName}</span>
+						</div>
+						<div class="row"><span class="rk">Module</span><span class="rv">{issue.moduleName ?? '—'}</span></div>
+						<div class="row">
+							<span class="rk">Source</span>
+							<span class="rv" title={SOURCE_META[issue.source].description}>
+								<span class="app-dot" style="background:{SOURCE_META[issue.source].color}"></span
+								>{SOURCE_META[issue.source].label}
+							</span>
+						</div>
+						<div class="row">
+							<span class="rk">Page / Form</span>
+							<span class="rv">
+								<span style="font-family:var(--font-mono);font-size:12px">{issue.pagePath || '—'}</span
+								>{issue.formName ? ' · ' + issue.formName : ''}
+							</span>
+						</div>
+						<div class="row">
+							<span class="rk">Priority</span>
+							<span class="rv"><PriorityMeter priority={issue.priority} /> {PRIORITY_META[issue.priority].label}</span>
+						</div>
+						<div class="row">
+							<span class="rk">Reporter</span>
+							<span class="rv"><Avatar user={reporter} /> {reporter?.name ?? issue.reporterId}</span>
+						</div>
+						<div class="row">
+							<span class="rk">Assignee</span>
+							<span class="rv">
+								{#if assignee}
+									<Avatar user={assignee} /> {assignee.name}
+								{:else}
+									<span style="color:var(--faint)">Unassigned</span>
+								{/if}
+							</span>
+						</div>
+						<div class="row">
+							<span class="rk">Reported</span>
+							<span class="rv" title={fmtDateTime(issue.createdAt)}>
+								{fmtWhen(issue.createdAt)}
+								<span style="color:var(--faint);font-size:12px">· {fmtDateTime(issue.createdAt)}</span>
+							</span>
+						</div>
+						<div class="row">
+							<span class="rk">Last modified</span>
+							<span class="rv" title={fmtDateTime(issue.updatedAt)}>
+								{fmtWhen(issue.updatedAt)}
+								<span style="color:var(--faint);font-size:12px">· {fmtDateTime(issue.updatedAt)}</span>
+							</span>
+						</div>
+						<div class="row">
+							<span class="rk">Tags</span>
+							<span class="rv">
+								{#each issue.tags as tag (tag)}
+									<span class="mod-tag">{tag}</span>
+								{:else}
+									—
+								{/each}
+							</span>
+						</div>
+					</div>
+				</div>
+				<div class="dr-log">
+					<div class="dr-sec-t">Activity</div>
+					<div class="timeline">
+						{#each history as entry (entry.id)}
+							{#if entry.kind === 'created'}
+								<div class="tl-item">
+									<div class="tl-txt"><b>{userName(entry.by)}</b> created this issue</div>
+									<div class="tl-time">{fmtDate(entry.at)} · via IssueDesk</div>
+								</div>
+							{:else}
+								<div class="tl-item muted">
+									<!-- eslint-disable-next-line svelte/no-at-html-tags — built from known labels -->
+									<div class="tl-txt">{@html activityText(entry)}</div>
+									<div class="tl-time">{fmtDate(entry.at)}</div>
+								</div>
+							{/if}
+						{/each}
+					</div>
+				</div>
+			</div>
+			<div class="dr-main">
+				<div class="dr-sec-t">Description</div>
+				<!-- eslint-disable-next-line svelte/no-at-html-tags — sanitised via DOMPurify -->
+				<div class="dr-desc">{@html descHtml}</div>
+				{#if issue.attachments.length}
+					<div class="dr-sec-t">Attachments · public URLs</div>
+					<div class="gallery">
+						{#each issue.attachments as att (att.id)}
+							{#if att.kind === 'image'}
+								<button
+									type="button"
+									class="gal-item"
+									onclick={() => openLightbox(issue.attachments, att)}
+								>
+									<div class="gal-thumb img">
+										<img src={att.url} alt={att.filename} loading="lazy" />
+									</div>
+									<div class="gal-name">{att.filename}</div>
+								</button>
+							{:else}
+								<a class="gal-item" href={att.url} target="_blank" rel="noopener">
+									<div class="gal-thumb pdf"><Icon name="file-lt" /></div>
+									<div class="gal-name">{att.filename}</div>
+								</a>
+							{/if}
+						{/each}
+					</div>
+				{/if}
+				<div class="dr-sec-t">Comments{comments.length ? ` · ${comments.length}` : ''}</div>
+				<div class="cm-list">
+					{#each comments as c (c.id)}
+						<article class="cm">
+							<div class="cm-head">
+								<Avatar user={users.find((u) => u.id === c.by)} size={22} />
+								<b>{userName(c.by)}</b>
+								<span class="cm-when" title={fmtDateTime(c.at)}>{fmtWhen(c.at)}</span>
+							</div>
+							<!-- eslint-disable-next-line svelte/no-at-html-tags — sanitised via DOMPurify -->
+							<div class="cm-body">{@html c.html}</div>
+						</article>
+					{:else}
+						<p class="cm-none">No comments yet — add the first one.</p>
 					{/each}
 				</div>
-			{/if}
-			<div class="dr-sec-t">Comments{comments.length ? ` · ${comments.length}` : ''}</div>
-			<div class="cm-list">
-				{#each comments as c (c.id)}
-					<article class="cm">
-						<div class="cm-head">
-							<Avatar user={users.find((u) => u.id === c.by)} size={22} />
-							<b>{userName(c.by)}</b>
-							<span class="cm-when" title={fmtDateTime(c.at)}>{fmtWhen(c.at)}</span>
-						</div>
-						<!-- eslint-disable-next-line svelte/no-at-html-tags — sanitised via DOMPurify -->
-						<div class="cm-body">{@html c.html}</div>
-					</article>
-				{:else}
-					<p class="cm-none">No comments yet — add the first one.</p>
-				{/each}
-			</div>
-			<form
-				class="cm-new"
-				onsubmit={(e) => {
-					e.preventDefault();
-					postComment();
-				}}
-			>
-				<textarea
-					class="ta"
-					bind:value={draft}
-					onkeydown={composerKeydown}
-					placeholder="Add a comment…"
-					aria-label="Add a comment"
-				></textarea>
-				<div class="cm-actions">
-					<span class="cm-hint">Markdown supported · Ctrl + Enter to post</span>
-					<button class="btn btn-primary btn-sm" type="submit" disabled={posting || !draft.trim()}>
-						{posting ? 'Posting…' : 'Comment'}
-					</button>
-				</div>
-			</form>
-
-			<div class="dr-sec-t">Activity</div>
-			<div class="timeline">
-				{#each history as entry (entry.id)}
-					{#if entry.kind === 'created'}
-						<div class="tl-item">
-							<div class="tl-txt"><b>{userName(entry.by)}</b> created this issue</div>
-							<div class="tl-time">{fmtDate(entry.at)} · via IssueDesk</div>
-						</div>
-					{:else}
-						<div class="tl-item muted">
-							<!-- eslint-disable-next-line svelte/no-at-html-tags — built from known labels -->
-							<div class="tl-txt">{@html activityText(entry)}</div>
-							<div class="tl-time">{fmtDate(entry.at)}</div>
-						</div>
-					{/if}
-				{/each}
+				<form
+					class="cm-new"
+					onsubmit={(e) => {
+						e.preventDefault();
+						postComment();
+					}}
+				>
+					<textarea
+						class="ta"
+						bind:value={draft}
+						onkeydown={composerKeydown}
+						placeholder="Add a comment…"
+						aria-label="Add a comment"
+					></textarea>
+					<div class="cm-actions">
+						<span class="cm-hint">Markdown supported · Ctrl + Enter to post</span>
+						<button class="btn btn-primary btn-sm" type="submit" disabled={posting || !draft.trim()}>
+							{posting ? 'Posting…' : 'Comment'}
+						</button>
+					</div>
+				</form>
 			</div>
 		</div>
 		<div class="dr-foot">

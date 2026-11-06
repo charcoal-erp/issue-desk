@@ -68,7 +68,6 @@
 <section class="screen">
 	<FilterRail
 		applications={data.applications}
-		categories={data.categories}
 		counts={data.counts}
 		filter={data.filter}
 		hideStatus
