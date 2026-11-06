@@ -43,11 +43,9 @@ export async function extractTags(
 		model,
 		system: SYSTEM,
 		user: `Title: ${title}\n\nDescription:\n${description}`.trim(),
-		maxTokens: 200,
-		// The fast model (Haiku 4.5) predates adaptive thinking and 400s on it —
-		// which is what broke tag suggestions. Classifying a title and description
-		// into a handful of slugs needs no reasoning budget anyway.
-		thinking: false
+		// Haiku 5.5 thinks before it answers, and thinking counts against this
+		// cap — a tight one would cut the tag list off and leave nothing to parse.
+		maxTokens: 2000
 	});
 	return { tags: parseTags(raw, vocabulary), model };
 }

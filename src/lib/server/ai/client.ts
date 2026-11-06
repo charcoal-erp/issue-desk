@@ -30,8 +30,8 @@ interface CallOptions {
 	maxTokens?: number;
 	/**
 	 * Adaptive thinking. Defaults to on, but it is NOT universal: it arrived
-	 * with the 4.6 generation, and Haiku 4.5 — the fast model behind tag
-	 * extraction — rejects `thinking: {type:'adaptive'}` outright with a 400.
+	 * with the 4.6 generation, and older models such as Haiku 4.5 reject
+	 * `thinking: {type:'adaptive'}` outright with a 400.
 	 * Pass false for any call routed to a model older than that.
 	 */
 	thinking?: boolean;

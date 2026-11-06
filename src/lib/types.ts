@@ -220,8 +220,8 @@ export const PROVIDER_META: Record<Provider, ProviderMeta> = {
 		label: 'Anthropic (Claude)',
 		envKey: 'ANTHROPIC_API_KEY',
 		keyHint: 'sk-ant-…',
-		defaultModel: 'claude-opus-4-8',
-		fastModel: 'claude-haiku-4-5'
+		defaultModel: 'claude-haiku-5-5',
+		fastModel: 'claude-haiku-5-5'
 	}
 };
 
